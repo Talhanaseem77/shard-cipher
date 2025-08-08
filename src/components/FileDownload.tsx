@@ -16,15 +16,23 @@ export const FileDownload: React.FC = () => {
 
   useEffect(() => {
     // Parse encryption parameters from URL fragment
-    const { key, iv } = parseUrlFragment();
-    
-    if (!key || !iv) {
-      setError('Invalid download link - encryption keys missing');
-      return;
-    }
+    try {
+      const { key, iv } = parseUrlFragment();
+      
+      if (!key || !iv) {
+        setError('Invalid download link - encryption keys missing');
+        return;
+      }
 
-    // You could fetch basic file info here (without decryption)
-    // For now, we'll just show the download interface
+      // Test if the keys are valid base64 by trying to decode them
+      const { base64ToArrayBuffer } = require('@/lib/encryption');
+      base64ToArrayBuffer(key);
+      base64ToArrayBuffer(iv);
+      
+    } catch (err) {
+      console.error('Invalid URL keys:', err);
+      setError('Invalid download link - encryption keys are corrupted');
+    }
   }, []);
 
   const handleDownload = async () => {
