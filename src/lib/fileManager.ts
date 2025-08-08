@@ -89,8 +89,8 @@ export async function uploadEncryptedFile(
       iv
     });
 
-    // Generate download URL
-    const downloadUrl = `${window.location.origin}/f/${fileId}#key=${key}&iv=${iv}`;
+    // Generate download URL with properly encoded keys
+    const downloadUrl = `${window.location.origin}/f/${fileId}#key=${encodeURIComponent(key)}&iv=${encodeURIComponent(iv)}`;
 
     // Log upload action
     await logAction('upload', {

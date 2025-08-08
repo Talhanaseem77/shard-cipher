@@ -288,7 +288,7 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
 // Generate download URL with encryption key in fragment
 export function generateDownloadUrl(fileId: string, key: string, iv: string): string {
   const baseUrl = window.location.origin;
-  return `${baseUrl}/f/${fileId}#key=${key}&iv=${iv}`;
+  return `${baseUrl}/f/${fileId}#key=${encodeURIComponent(key)}&iv=${encodeURIComponent(iv)}`;
 }
 
 // Parse encryption parameters from URL fragment
@@ -296,8 +296,11 @@ export function parseUrlFragment(): { key?: string; iv?: string } {
   const fragment = window.location.hash.substring(1);
   const params = new URLSearchParams(fragment);
   
+  const key = params.get('key');
+  const iv = params.get('iv');
+  
   return {
-    key: params.get('key') || undefined,
-    iv: params.get('iv') || undefined
+    key: key ? decodeURIComponent(key) : undefined,
+    iv: iv ? decodeURIComponent(iv) : undefined
   };
 }
