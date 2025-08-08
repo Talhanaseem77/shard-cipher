@@ -253,18 +253,31 @@ export async function decryptFileList(encryptedList: string, password: string, s
   return JSON.parse(listString);
 }
 
-// Utility functions
+// Utility functions for URL-safe base64 conversion
 export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  return btoa(binary);
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 }
 
 export function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
+  // Convert URL-safe base64 back to standard base64
+  let standardBase64 = base64
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  
+  // Add padding if needed
+  while (standardBase64.length % 4) {
+    standardBase64 += '=';
+  }
+  
+  const binary = atob(standardBase64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
