@@ -164,13 +164,22 @@ export async function updateUserFileList(userId: string, newFile: EncryptedFileM
     const { encryptedList, salt: newSalt } = await encryptFileList(updatedList, password);
 
     // Upsert to database
-    await supabase
+    const { error: upsertError } = await supabase
       .from('user_file_index')
       .upsert({
         user_id: userId,
         encrypted_file_list: encryptedList,
         salt: salt || newSalt
+      }, {
+        onConflict: 'user_id'
       });
+
+    if (upsertError) {
+      console.error('Upsert error:', upsertError);
+      throw upsertError;
+    }
+
+    console.log('File list updated successfully for user:', userId);
   } catch (error) {
     console.error('Error updating file list:', error);
     throw error;
