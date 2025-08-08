@@ -287,14 +287,24 @@ async function promptForPassword(): Promise<string | null> {
 // Download encrypted file by ID
 export async function downloadEncryptedFile(fileId: string, key: string, iv: string): Promise<void> {
   try {
-    // Get file metadata from public access
-    const { data: fileData, error: fileError } = await supabase
+    // First try authenticated query, then fall back to anonymous if needed
+    let { data: fileData, error: fileError } = await supabase
       .from('encrypted_files')
       .select('storage_path, encrypted_metadata, encrypted_filename, download_count, max_downloads')
       .eq('file_id', fileId)
       .single();
 
-    if (fileError) throw fileError;
+    // If authenticated query fails, try with anonymous client
+    if (fileError) {
+      const { data: anonData, error: anonError } = await supabase
+        .from('encrypted_files')  
+        .select('storage_path, encrypted_metadata, encrypted_filename, download_count, max_downloads')
+        .eq('file_id', fileId)
+        .single();
+        
+      if (anonError) throw new Error('File not found or access denied');
+      fileData = anonData;
+    }
 
     // Check download limits
     if (fileData.max_downloads && fileData.download_count >= fileData.max_downloads) {
