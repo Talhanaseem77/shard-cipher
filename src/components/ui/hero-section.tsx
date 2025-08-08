@@ -24,9 +24,9 @@ export const HeroSection = () => {
 
           {/* Main Heading */}
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            <span className="gradient-text">Secure File Sharing</span>
+            <span className="gradient-text">Zero-Trust File Sharing</span>
             <br />
-            Without Compromise
+            With ZettlerShare
           </h1>
 
           {/* Subtitle */}

@@ -7,7 +7,7 @@ import { Shield, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/secure-share-logo.png";
+import logo from "/lovable-uploads/11d45449-ee74-4152-976e-03dd7cdd6e51.png";
 
 export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
@@ -149,8 +149,8 @@ export default function Signup() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2">
-            <img src={logo} alt="SecureShare" className="w-10 h-10" />
-            <span className="text-2xl font-bold gradient-text">SecureShare</span>
+            <img src={logo} alt="ZettlerShare" className="w-10 h-10" />
+            <span className="text-2xl font-bold gradient-text">ZettlerShare</span>
           </Link>
         </div>
 
