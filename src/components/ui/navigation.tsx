@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Shield } from "lucide-react";
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/secure-share-logo.png";
 
 export const Navigation = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="SecureShare Logo" className="w-8 h-8" />
+          <img src={logo} alt="SecureShare Logo" className="w-10 h-10" />
           <span className="text-xl font-bold gradient-text">SecureShare</span>
         </Link>
         
