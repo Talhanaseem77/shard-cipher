@@ -190,6 +190,87 @@ export type Database = {
           },
         ]
       }
+      encrypted_audit_logs: {
+        Row: {
+          created_at: string
+          encrypted_log_entry: string
+          id: string
+          ip_address: unknown | null
+          log_type: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          encrypted_log_entry: string
+          id?: string
+          ip_address?: unknown | null
+          log_type: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          encrypted_log_entry?: string
+          id?: string
+          ip_address?: unknown | null
+          log_type?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      encrypted_files: {
+        Row: {
+          created_at: string
+          download_count: number
+          encrypted_filename: string
+          encrypted_metadata: Json
+          expires_at: string | null
+          file_id: string
+          file_size: number
+          id: string
+          max_downloads: number | null
+          mime_type: string | null
+          storage_path: string
+          updated_at: string
+          upload_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          download_count?: number
+          encrypted_filename: string
+          encrypted_metadata: Json
+          expires_at?: string | null
+          file_id: string
+          file_size: number
+          id?: string
+          max_downloads?: number | null
+          mime_type?: string | null
+          storage_path: string
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          download_count?: number
+          encrypted_filename?: string
+          encrypted_metadata?: Json
+          expires_at?: string | null
+          file_id?: string
+          file_size?: number
+          id?: string
+          max_downloads?: number | null
+          mime_type?: string | null
+          storage_path?: string
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -421,6 +502,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_file_index: {
+        Row: {
+          created_at: string
+          encrypted_file_list: string
+          id: string
+          salt: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_file_list: string
+          id?: string
+          salt: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_file_list?: string
+          id?: string
+          salt?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_stats: {
         Row: {
           active_projects: number
@@ -468,6 +576,10 @@ export type Database = {
       delete_user_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      generate_file_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_cost_savings_multiplier: {
         Args: { task_type: string }
