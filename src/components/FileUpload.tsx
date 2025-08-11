@@ -95,7 +95,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         fileInputRef.current.value = '';
       }
     } catch (error: any) {
-      console.error('Upload error:', error);
+      console.error('Upload error details:', {
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause,
+        error: error
+      });
+      
       toast({
         title: "Upload failed",
         description: error.message || "An error occurred during upload",
