@@ -138,13 +138,35 @@ export async function getUserFileList(): Promise<EncryptedFileMetadata[]> {
 // Update user's encrypted file list
 export async function updateUserFileList(userId: string, newFile: EncryptedFileMetadata): Promise<void> {
   try {
-    // Store file metadata directly without encryption for now
-    // This allows uploads without password requirements
+    // Get existing file list
+    const { data: existingData } = await supabase
+      .from('user_file_index')
+      .select('encrypted_file_list')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Parse existing files
+    let existingFiles: EncryptedFileMetadata[] = [];
+    if (existingData?.encrypted_file_list) {
+      try {
+        const parsed = JSON.parse(existingData.encrypted_file_list);
+        existingFiles = Array.isArray(parsed) ? parsed : [];
+      } catch (parseError) {
+        console.error('Error parsing existing file list:', parseError);
+        existingFiles = [];
+      }
+    }
+
+    // Add new file to the list (avoid duplicates by fileId)
+    const updatedFiles = existingFiles.filter(file => file.fileId !== newFile.fileId);
+    updatedFiles.push(newFile);
+
+    // Store updated file list
     const { error: upsertError } = await supabase
       .from('user_file_index')
       .upsert({
         user_id: userId,
-        encrypted_file_list: JSON.stringify([newFile]), // Store as plain JSON for now
+        encrypted_file_list: JSON.stringify(updatedFiles),
         salt: 'no-salt-needed'
       }, {
         onConflict: 'user_id'
@@ -155,7 +177,7 @@ export async function updateUserFileList(userId: string, newFile: EncryptedFileM
       throw upsertError;
     }
 
-    console.log('File list updated successfully for user:', userId);
+    console.log('File list updated successfully for user:', userId, 'Total files:', updatedFiles.length);
   } catch (error) {
     console.error('Error updating file list:', error);
     throw error;
