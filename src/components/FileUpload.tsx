@@ -52,9 +52,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
+    console.log('Starting file upload for:', file.name, 'size:', file.size);
+
     // Validate file size (100MB limit)
     const maxSize = 100 * 1024 * 1024;
     if (file.size > maxSize) {
+      console.log('File size validation failed:', file.size, 'vs max:', maxSize);
       toast({
         title: "File too large",
         description: "Maximum file size is 100MB",
@@ -63,15 +66,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       return;
     }
 
+    console.log('File validation passed, starting upload process...');
     setIsUploading(true);
     setUploadProgress(0);
     setUploadResult(null);
 
     try {
+      console.log('Starting encryption and upload...');
       // Simulate progress during encryption
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 80));
       }, 200);
+
+      console.log('Calling uploadEncryptedFile with params:', {
+        fileName: file.name,
+        expiryDays: expiryDays > 0 ? expiryDays : undefined,
+        maxDownloads: maxDownloads > 0 ? maxDownloads : undefined
+      });
 
       const result = await uploadEncryptedFile(
         file,
@@ -79,6 +90,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         maxDownloads > 0 ? maxDownloads : undefined
       );
 
+      console.log('Upload completed successfully:', result);
       clearInterval(progressInterval);
       setUploadProgress(100);
       setUploadResult(result);
