@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Lock, AlertTriangle, FileX, Loader2 } from 'lucide-react';
 import { downloadEncryptedFile } from '@/lib/fileManager';
-import { parseUrlFragment } from '@/lib/encryption';
+import { parseUrlFragment, base64ToArrayBuffer } from '@/lib/encryption';
 
 export const FileDownload: React.FC = () => {
   const { fileId } = useParams<{ fileId: string }>();
@@ -25,7 +25,6 @@ export const FileDownload: React.FC = () => {
       }
 
       // Test if the keys are valid base64 by trying to decode them
-      const { base64ToArrayBuffer } = require('@/lib/encryption');
       base64ToArrayBuffer(key);
       base64ToArrayBuffer(iv);
       
