@@ -14,7 +14,7 @@ import {
   AlertTriangle,
   RefreshCw
 } from 'lucide-react';
-import { getUserFileList, deleteEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
+import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
 
 interface FileListProps {
@@ -25,6 +25,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [files, setFiles] = useState<EncryptedFileMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadFiles = async () => {
@@ -72,6 +73,26 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
       });
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleDownload = async (file: EncryptedFileMetadata) => {
+    try {
+      setDownloading(file.fileId);
+      await downloadEncryptedFile(file.fileId, file.key, file.iv);
+      toast({
+        title: "Download started",
+        description: `${file.originalName} is being downloaded`
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -205,6 +226,19 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                       Encrypted
                     </Badge>
                   )}
+                  
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => handleDownload(file)}
+                    disabled={isExpired(file.expiresAt) || downloading === file.fileId}
+                  >
+                    {downloading === file.fileId ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                  </Button>
                   
                   <Button
                     variant="outline"
