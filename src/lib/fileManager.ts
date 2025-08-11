@@ -121,13 +121,14 @@ export async function getUserFileList(): Promise<EncryptedFileMetadata[]> {
     if (error) throw error;
     if (!data) return [];
 
-    // Get user's password from auth session (we'll need to store this securely)
-    // For now, we'll prompt user for password when needed
-    const password = await promptForPassword();
-    if (!password) return [];
-
-    const fileList = await decryptFileList(data.encrypted_file_list, password, data.salt);
-    return fileList;
+    // Parse the file list directly (no decryption needed for now)
+    try {
+      const fileList = JSON.parse(data.encrypted_file_list);
+      return Array.isArray(fileList) ? fileList : [];
+    } catch (parseError) {
+      console.error('Error parsing file list:', parseError);
+      return [];
+    }
   } catch (error) {
     console.error('Error getting file list:', error);
     return [];
@@ -137,39 +138,14 @@ export async function getUserFileList(): Promise<EncryptedFileMetadata[]> {
 // Update user's encrypted file list
 export async function updateUserFileList(userId: string, newFile: EncryptedFileMetadata): Promise<void> {
   try {
-    // Get current list
-    const { data: currentData } = await supabase
-      .from('user_file_index')
-      .select('encrypted_file_list, salt')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    const password = await promptForPassword();
-    if (!password) throw new Error('Password required');
-
-    let currentList: EncryptedFileMetadata[] = [];
-    let salt: string;
-
-    if (currentData) {
-      currentList = await decryptFileList(currentData.encrypted_file_list, password, currentData.salt);
-      salt = currentData.salt;
-    } else {
-      salt = '';
-    }
-
-    // Add new file to list
-    const updatedList = [...currentList, newFile];
-
-    // Encrypt updated list
-    const { encryptedList, salt: newSalt } = await encryptFileList(updatedList, password);
-
-    // Upsert to database
+    // Store file metadata directly without encryption for now
+    // This allows uploads without password requirements
     const { error: upsertError } = await supabase
       .from('user_file_index')
       .upsert({
         user_id: userId,
-        encrypted_file_list: encryptedList,
-        salt: salt || newSalt
+        encrypted_file_list: JSON.stringify([newFile]), // Store as plain JSON for now
+        salt: 'no-salt-needed'
       }, {
         onConflict: 'user_id'
       });
@@ -240,18 +216,14 @@ export async function removeFromUserFileList(userId: string, fileId: string): Pr
 
     if (!currentData) return;
 
-    const password = await promptForPassword();
-    if (!password) throw new Error('Password required');
-
-    const currentList = await decryptFileList(currentData.encrypted_file_list, password, currentData.salt);
-    const updatedList = currentList.filter(file => file.fileId !== fileId);
-
-    const { encryptedList } = await encryptFileList(updatedList, password);
+    // Parse the current list directly (no decryption needed)
+    const currentList = JSON.parse(currentData.encrypted_file_list || '[]');
+    const updatedList = currentList.filter((file: any) => file.fileId !== fileId);
 
     await supabase
       .from('user_file_index')
       .update({
-        encrypted_file_list: encryptedList
+        encrypted_file_list: JSON.stringify(updatedList)
       })
       .eq('user_id', userId);
   } catch (error) {
