@@ -71,6 +71,14 @@ export const HeroSection = () => {
                 Set custom expiration times or choose no expiry for permanent storage.
               </p>
             </div>
+            
+            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
+              <Upload className="w-8 h-8 text-primary mb-4 mx-auto" />
+              <h3 className="font-semibold text-lg mb-2">Easy File Sharing</h3>
+              <p className="text-muted-foreground text-sm">
+                Drag and drop files or browse to upload. Share instantly with secure links.
+              </p>
+            </div>
           </div>
         </div>
       </div>
