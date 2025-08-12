@@ -15,7 +15,9 @@ import {
   AlertTriangle,
   RefreshCw,
   Key,
-  Eye
+  Eye,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
@@ -31,6 +33,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const loadFiles = async () => {
@@ -169,6 +172,18 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     return expiry < threeDaysFromNow && expiry > now;
   };
 
+  const toggleFileExpansion = (fileId: string) => {
+    setExpandedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileId)) {
+        newSet.delete(fileId);
+      } else {
+        newSet.add(fileId);
+      }
+      return newSet;
+    });
+  };
+
   if (loading) {
     return (
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -203,120 +218,192 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {files.map((file) => (
-              <div 
-                key={file.id}
-                className="flex items-center justify-between p-4 border border-border rounded-lg bg-background/30"
-              >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <File className="w-5 h-5 text-primary" />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium truncate">{file.originalName}</h4>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                      <span>{formatFileSize(file.size)}</span>
-                      <span className="flex items-center gap-1">
-                        <Download className="w-3 h-3" />
-                        {file.downloadCount} downloads
-                        {file.maxDownloads && ` / ${file.maxDownloads}`}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDate(file.uploadDate)}
-                      </span>
-                      {file.expiresAt && (
-                        <span className={`flex items-center gap-1 ${
-                          isExpired(file.expiresAt) ? 'text-destructive' : 
-                          isNearExpiry(file.expiresAt) ? 'text-yellow-500' : ''
-                        }`}>
-                          Expires {formatDate(file.expiresAt)}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Decryption Keys Display */}
-                    <div className="mt-2 p-2 bg-muted/30 rounded border text-xs space-y-1">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Key className="w-3 h-3" />
-                        <span className="font-medium">Decryption Key:</span>
+          <div className="space-y-3">
+            {files.map((file) => {
+              const isExpanded = expandedFiles.has(file.fileId);
+              return (
+                <div 
+                  key={file.id}
+                  className="border border-border rounded-xl bg-gradient-to-r from-background/90 to-background/60 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200"
+                >
+                  {/* Main File Info Row */}
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl border border-primary/20">
+                        <File className="w-5 h-5 text-primary" />
                       </div>
-                      <div className="font-mono break-all text-xs">{file.key}</div>
-                      <div className="flex items-center gap-1 text-muted-foreground mt-1">
-                        <span className="font-medium">IV:</span>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-foreground truncate">{file.originalName}</h4>
+                          {isExpired(file.expiresAt) ? (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Expired
+                            </Badge>
+                          ) : isNearExpiry(file.expiresAt) ? (
+                            <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-xs">
+                              <Clock className="w-3 h-3 mr-1" />
+                              Expiring Soon
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-green-500/10 text-green-500 border-green-500/20 text-xs">
+                              <Lock className="w-3 h-3 mr-1" />
+                              Encrypted
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-6 text-sm text-muted-foreground mt-1">
+                          <span className="font-medium">{formatFileSize(file.size)}</span>
+                          <span className="flex items-center gap-1">
+                            <Download className="w-3 h-3" />
+                            {file.downloadCount}
+                            {file.maxDownloads && ` / ${file.maxDownloads}`} downloads
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatDate(file.uploadDate)}
+                          </span>
+                          {file.expiresAt && !isExpired(file.expiresAt) && (
+                            <span className="flex items-center gap-1">
+                              Expires {formatDate(file.expiresAt)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="font-mono break-all text-xs">{file.iv}</div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {isExpired(file.expiresAt) ? (
-                    <Badge variant="destructive">
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      Expired
-                    </Badge>
-                  ) : isNearExpiry(file.expiresAt) ? (
-                    <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Expiring Soon
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 border-green-500/20">
-                      <Lock className="w-3 h-3 mr-1" />
-                      Encrypted
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleFileExpansion(file.fileId)}
+                        className="p-2"
+                        title="Show decryption keys"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </Button>
+                      
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleDownload(file)}
+                        disabled={isExpired(file.expiresAt) || downloading === file.fileId}
+                        className="gap-1"
+                      >
+                        {downloading === file.fileId ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleShare(file)}
+                        disabled={isExpired(file.expiresAt)}
+                        title="Share secure download link"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyKey(file.key, file.iv, file.originalName)}
+                        title="Copy decryption info"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteClick(file.fileId, file.originalName)}
+                        disabled={deleting === file.fileId}
+                        className="text-destructive hover:text-destructive border-destructive/20 hover:border-destructive/30"
+                      >
+                        {deleting === file.fileId ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Expandable Decryption Keys Section */}
+                  {isExpanded && (
+                    <div className="border-t border-border/50 bg-muted/20 rounded-b-xl">
+                      <div className="p-4 space-y-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <Key className="w-4 h-4" />
+                          Decryption Information
+                        </div>
+                        
+                        <div className="grid gap-3">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                Decryption Key
+                              </label>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigator.clipboard.writeText(file.key)}
+                                className="h-6 px-2 text-xs"
+                              >
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copy
+                              </Button>
+                            </div>
+                            <div className="p-3 bg-background/50 border border-border/50 rounded-lg">
+                              <code className="text-xs font-mono break-all text-foreground/80 leading-relaxed">
+                                {file.key}
+                              </code>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                Initialization Vector (IV)
+                              </label>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigator.clipboard.writeText(file.iv)}
+                                className="h-6 px-2 text-xs"
+                              >
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copy
+                              </Button>
+                            </div>
+                            <div className="p-3 bg-background/50 border border-border/50 rounded-lg">
+                              <code className="text-xs font-mono break-all text-foreground/80 leading-relaxed">
+                                {file.iv}
+                              </code>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="pt-2 border-t border-border/30">
+                          <p className="text-xs text-muted-foreground">
+                            These keys are required to decrypt your file. Store them securely or use the share link which embeds them automatically.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                  
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleDownload(file)}
-                    disabled={isExpired(file.expiresAt) || downloading === file.fileId}
-                  >
-                    {downloading === file.fileId ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleShare(file)}
-                    disabled={isExpired(file.expiresAt)}
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyKey(file.key, file.iv, file.originalName)}
-                    title="Copy decryption key and IV"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteClick(file.fileId, file.originalName)}
-                    disabled={deleting === file.fileId}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    {deleting === file.fileId ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </Button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         
