@@ -13,7 +13,9 @@ import {
   Clock, 
   Lock,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Key,
+  Eye
 } from 'lucide-react';
 import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
@@ -38,13 +40,11 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
       setFiles(fileList);
     } catch (error: any) {
       console.error('Error loading files:', error);
-      if (error.message !== 'Password required') {
-        toast({
-          title: "Error loading files",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error loading files",
+        description: error.message,
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -126,6 +126,24 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     }
   };
 
+  const handleCopyKey = async (key: string, iv: string, fileName: string) => {
+    try {
+      const keyInfo = `File: ${fileName}\nDecryption Key: ${key}\nIV: ${iv}`;
+      await navigator.clipboard.writeText(keyInfo);
+      toast({
+        title: "Decryption info copied",
+        description: "File decryption key and IV have been copied to clipboard"
+      });
+    } catch (error) {
+      console.error('Copy error:', error);
+      toast({
+        title: "Copy failed",
+        description: "Could not copy decryption info to clipboard",
+        variant: "destructive"
+      });
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -172,7 +190,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           Your Encrypted Files ({files.length})
         </CardTitle>
         <CardDescription>
-          All files are encrypted with AES-GCM. Decryption keys are embedded in download URLs.
+          All files are encrypted with AES-GCM. Decryption keys are shown below and embedded in download URLs.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -218,6 +236,19 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                         </span>
                       )}
                     </div>
+                    
+                    {/* Decryption Keys Display */}
+                    <div className="mt-2 p-2 bg-muted/30 rounded border text-xs space-y-1">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Key className="w-3 h-3" />
+                        <span className="font-medium">Decryption Key:</span>
+                      </div>
+                      <div className="font-mono break-all text-xs">{file.key}</div>
+                      <div className="flex items-center gap-1 text-muted-foreground mt-1">
+                        <span className="font-medium">IV:</span>
+                      </div>
+                      <div className="font-mono break-all text-xs">{file.iv}</div>
+                    </div>
                   </div>
                 </div>
 
@@ -259,6 +290,15 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                     disabled={isExpired(file.expiresAt)}
                   >
                     <Share2 className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyKey(file.key, file.iv, file.originalName)}
+                    title="Copy decryption key and IV"
+                  >
+                    <Copy className="w-4 h-4" />
                   </Button>
                   
                   <Button

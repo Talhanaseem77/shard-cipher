@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  userKey: CryptoKey | null;
+  setUserKey: (key: CryptoKey | null) => void;
   signOut: () => Promise<void>;
 }
 
@@ -23,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userKey, setUserKey] = useState<CryptoKey | null>(null);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -46,6 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      // Clear user encryption key
+      setUserKey(null);
+      
       // Clean up auth state
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
@@ -74,6 +80,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     session,
     loading,
+    userKey,
+    setUserKey,
     signOut,
   };
 

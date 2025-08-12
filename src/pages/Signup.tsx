@@ -7,6 +7,7 @@ import { Shield, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { generateSalt, arrayBufferToBase64 } from "@/lib/encryption";
 import logo from "/lovable-uploads/11d45449-ee74-4152-976e-03dd7cdd6e51.png";
 
 export default function Signup() {
@@ -120,6 +121,23 @@ export default function Signup() {
       }
 
       if (data.user) {
+        // Generate and store user's salt for key derivation
+        try {
+          const salt = generateSalt();
+          const saltBase64 = arrayBufferToBase64(salt);
+          
+          // Store salt in profile (this will be created by trigger)
+          setTimeout(async () => {
+            await supabase
+              .from('profiles')
+              .update({ avatar_url: `salt:${saltBase64}` })
+              .eq('user_id', data.user!.id);
+          }, 1000); // Delay to let profile creation trigger complete
+        } catch (saltError) {
+          console.error('Error storing salt:', saltError);
+          // Don't fail signup for this
+        }
+        
         setSuccess(true);
         toast({
           title: "Account created successfully!",
@@ -315,8 +333,8 @@ export default function Signup() {
         {/* Security Notice */}
         <div className="mt-6 text-center">
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            By creating an account, you agree to our Terms of Service and Privacy Policy. 
-            Your data is encrypted and never stored in plaintext.
+            Your password will generate a unique encryption key. We never store your password or key.
+            All encryption happens in your browser for maximum security.
           </p>
         </div>
       </div>

@@ -7,6 +7,8 @@ import { Shield, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { deriveKeyFromPassword, generateSalt, base64ToArrayBuffer } from "@/lib/encryption";
 import logo from "/lovable-uploads/11d45449-ee74-4152-976e-03dd7cdd6e51.png";
 
 export default function Login() {
@@ -17,6 +19,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setUserKey } = useAuth();
 
   useEffect(() => {
     // Check if user is already logged in
@@ -75,12 +78,49 @@ export default function Login() {
       }
 
       if (data.user) {
+        // Get or create user's salt for key derivation
+        let salt: Uint8Array;
+        
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .single();
+            
+          if (profileError || !profile) {
+            // Create new salt for new user
+            salt = generateSalt();
+          } else {
+            // Use existing salt or create one if missing
+            if (profile.avatar_url && profile.avatar_url.startsWith('salt:')) {
+              const saltBase64 = profile.avatar_url.replace('salt:', '');
+              salt = new Uint8Array(base64ToArrayBuffer(saltBase64));
+            } else {
+              salt = generateSalt();
+              // Store salt in avatar_url field for now (can be moved to dedicated field later)
+              await supabase
+                .from('profiles')
+                .update({ avatar_url: `salt:${btoa(String.fromCharCode(...salt))}` })
+                .eq('user_id', data.user.id);
+            }
+          }
+        } catch (err) {
+          // Fallback: create new salt
+          salt = generateSalt();
+        }
+
+        // Derive encryption key from password
+        const userKey = await deriveKeyFromPassword(password, salt);
+        setUserKey(userKey);
+
         toast({
           title: "Welcome back!",
-          description: "You have successfully signed in.",
+          description: "You have successfully signed in and your encryption key is ready.",
         });
-        // Force page reload for clean state
-        window.location.href = "/dashboard";
+        
+        // Navigate to dashboard
+        navigate("/dashboard");
       }
     } catch (error: any) {
       setError("An unexpected error occurred. Please try again.");
@@ -189,8 +229,8 @@ export default function Login() {
         {/* Security Notice */}
         <div className="mt-6 text-center">
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Your password is never stored in plaintext. We use industry-standard 
-            encryption to protect your account.
+            Your password generates your unique encryption key. We never store your password or key.
+            All encryption happens in your browser.
           </p>
         </div>
       </div>
