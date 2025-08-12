@@ -95,7 +95,41 @@ export async function uploadEncryptedFile(
   }
 }
 
-// Get user's encrypted file list
+// Get user's files directly from encrypted_files table (no password required)
+export async function getUserFiles(): Promise<EncryptedFileMetadata[]> {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw new Error('User not authenticated');
+
+  try {
+    const { data, error } = await supabase
+      .from('encrypted_files')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Transform database records to match EncryptedFileMetadata interface
+    return (data || []).map(file => ({
+      id: file.id,
+      fileId: file.file_id,
+      originalName: file.encrypted_filename, // This is encrypted, but we'll show it for now
+      size: Number(file.file_size),
+      type: file.mime_type || 'application/octet-stream',
+      uploadDate: file.upload_date,
+      expiresAt: file.expires_at,
+      maxDownloads: file.max_downloads,
+      downloadCount: file.download_count,
+      key: '', // We'll need to extract this from metadata or URL
+      iv: ''   // We'll need to extract this from metadata or URL
+    }));
+  } catch (error) {
+    console.error('Error fetching user files:', error);
+    throw error;
+  }
+}
+
+// Get user's encrypted file list (requires password)
 export async function getUserFileList(password: string): Promise<EncryptedFileMetadata[]> {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('User not authenticated');
