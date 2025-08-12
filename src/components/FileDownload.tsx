@@ -50,7 +50,7 @@ export const FileDownload: React.FC = () => {
       setDownloading(true);
       setError(null);
       
-      await downloadEncryptedFile(fileId, key, iv);
+      await downloadFile(fileId, key, iv);
       
       toast({
         title: "Download started",

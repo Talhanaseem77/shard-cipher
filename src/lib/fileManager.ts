@@ -304,9 +304,19 @@ export async function deleteFile(fileId: string): Promise<void> {
 // Download a file
 export async function downloadFile(fileId: string, key: string, iv: string): Promise<void> {
   try {
-    // Increment download count first
+    // Get current download count and increment it
+    const { data: currentData } = await supabase
+      .from('encrypted_files')
+      .select('download_count')
+      .eq('file_id', fileId)
+      .single();
+    
+    const newCount = (currentData?.download_count || 0) + 1;
+    
     const { error: updateError } = await supabase
-      .rpc('increment_download_count', { file_id: fileId });
+      .from('encrypted_files')
+      .update({ download_count: newCount })
+      .eq('file_id', fileId);
 
     if (updateError) throw updateError;
 

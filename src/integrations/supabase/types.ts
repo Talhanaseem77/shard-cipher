@@ -600,6 +600,10 @@ export type Database = {
         Args: { task_type: string }
         Returns: number
       }
+      increment_download_count: {
+        Args: { file_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
