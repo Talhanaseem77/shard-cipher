@@ -56,7 +56,13 @@ export const HeroSection = () => {
               </p>
             </div>
             
-            
+            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
+              <Shield className="w-8 h-8 text-primary mb-4 mx-auto" />
+              <h3 className="font-semibold text-lg mb-2">Zero-Knowledge Architecture</h3>
+              <p className="text-muted-foreground text-sm">
+                We can't see your data even if we wanted to. True privacy by design.
+              </p>
+            </div>
             
             <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
               <Lock className="w-8 h-8 text-primary mb-4 mx-auto" />
