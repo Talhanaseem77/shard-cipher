@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { encryptFile, encryptFileList, decryptFileList } from '@/lib/encryption';
+import { SecureFileIndex } from '@/lib/secureFileIndex';
 
 export interface EncryptedFileMetadata {
   id: string;
@@ -11,8 +12,13 @@ export interface EncryptedFileMetadata {
   expiresAt?: string;
   maxDownloads?: number;
   downloadCount: number;
-  key: string;
-  iv: string;
+  encryptedKey: string; // File key encrypted with user's master key
+  encryptedIv: string;   // File IV encrypted with user's master key
+}
+
+export interface DecryptedFileMetadata extends Omit<EncryptedFileMetadata, 'encryptedKey' | 'encryptedIv'> {
+  key: string; // Decrypted file key for UI display
+  iv: string;  // Decrypted file IV for UI display
 }
 
 export interface UploadResult {
@@ -23,6 +29,8 @@ export interface UploadResult {
 // Upload an encrypted file
 export async function uploadEncryptedFile(
   file: File,
+  userKey: CryptoKey,
+  password: string,
   expiryDays?: number,
   maxDownloads?: number
 ): Promise<UploadResult> {
@@ -74,8 +82,30 @@ export async function uploadEncryptedFile(
 
     if (metadataError) throw metadataError;
 
+    // Encrypt the file keys with user's master key
+    const encoder = new TextEncoder();
+    const keyIv = crypto.getRandomValues(new Uint8Array(12));
+    const ivIv = crypto.getRandomValues(new Uint8Array(12));
+    
+    const encryptedKeyData = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: keyIv },
+      userKey,
+      encoder.encode(key)
+    );
+    
+    const encryptedIvData = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: ivIv },
+      userKey,
+      encoder.encode(iv)
+    );
+    
+    const encryptedKey = Array.from(keyIv).map(b => b.toString(16).padStart(2, '0')).join('') + 
+                        Array.from(new Uint8Array(encryptedKeyData)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const encryptedIv = Array.from(ivIv).map(b => b.toString(16).padStart(2, '0')).join('') + 
+                       Array.from(new Uint8Array(encryptedIvData)).map(b => b.toString(16).padStart(2, '0')).join('');
+
     // Update user's encrypted file list
-    await updateUserFileList(user.id, {
+    await updateUserFileList(user.id, password, {
       id: fileId,
       fileId,
       originalName: file.name,
@@ -85,8 +115,8 @@ export async function uploadEncryptedFile(
       expiresAt: expiresAt || undefined,
       maxDownloads,
       downloadCount: 0,
-      key,
-      iv
+      encryptedKey,
+      encryptedIv
     });
 
     // Generate download URL with properly encoded keys
@@ -106,8 +136,8 @@ export async function uploadEncryptedFile(
   }
 }
 
-// Get user's encrypted file list
-export async function getUserFileList(password?: string): Promise<EncryptedFileMetadata[]> {
+// Get user's encrypted file list and decrypt file keys for display
+export async function getUserFileList(userKey: CryptoKey, password: string): Promise<DecryptedFileMetadata[]> {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('User not authenticated');
 
@@ -123,10 +153,62 @@ export async function getUserFileList(password?: string): Promise<EncryptedFileM
 
     // Parse the file list
     try {
-      const fileList = JSON.parse(data.encrypted_file_list);
-      return Array.isArray(fileList) ? fileList : [];
+      // Decrypt the file list using the user's password
+      const encryptedFileList = await SecureFileIndex.decryptFileList(
+        data.encrypted_file_list,
+        password,
+        data.salt,
+        data.iv || ''
+      );
+      
+      // Decrypt individual file keys for UI display
+      const decryptedFileList: DecryptedFileMetadata[] = [];
+      const decoder = new TextDecoder();
+      
+      for (const file of encryptedFileList) {
+        try {
+          // Extract IV and encrypted data for key
+          const keyIvHex = file.encryptedKey.substring(0, 24); // 12 bytes = 24 hex chars
+          const keyDataHex = file.encryptedKey.substring(24);
+          const keyIv = new Uint8Array(keyIvHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+          const keyData = new Uint8Array(keyDataHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+          
+          // Extract IV and encrypted data for iv
+          const ivIvHex = file.encryptedIv.substring(0, 24);
+          const ivDataHex = file.encryptedIv.substring(24);
+          const ivIv = new Uint8Array(ivIvHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+          const ivData = new Uint8Array(ivDataHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+          
+          // Decrypt the file key and IV
+          const decryptedKeyBuffer = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: keyIv },
+            userKey,
+            keyData
+          );
+          
+          const decryptedIvBuffer = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: ivIv },
+            userKey,
+            ivData
+          );
+          
+          const key = decoder.decode(decryptedKeyBuffer);
+          const iv = decoder.decode(decryptedIvBuffer);
+          
+          decryptedFileList.push({
+            ...file,
+            key,
+            iv
+          });
+        } catch (decryptError) {
+          console.error('Error decrypting file keys for file:', file.fileId, decryptError);
+          // Skip files that can't be decrypted
+        }
+      }
+      
+      return decryptedFileList;
     } catch (parseError) {
-      console.error('Error parsing file list:', parseError);
+      console.error('Error parsing/decrypting file list:', parseError);
       return [];
     }
   } catch (error) {
@@ -136,23 +218,28 @@ export async function getUserFileList(password?: string): Promise<EncryptedFileM
 }
 
 // Update user's encrypted file list
-export async function updateUserFileList(userId: string, newFile: EncryptedFileMetadata): Promise<void> {
+export async function updateUserFileList(userId: string, password: string, newFile: EncryptedFileMetadata): Promise<void> {
   try {
     // Get existing file list
     const { data: existingData } = await supabase
       .from('user_file_index')
-      .select('encrypted_file_list')
+      .select('encrypted_file_list, salt, iv')
       .eq('user_id', userId)
       .maybeSingle();
 
     // Parse existing files
     let existingFiles: EncryptedFileMetadata[] = [];
-    if (existingData?.encrypted_file_list) {
+    if (existingData?.encrypted_file_list && existingData?.salt) {
       try {
-        const parsed = JSON.parse(existingData.encrypted_file_list);
-        existingFiles = Array.isArray(parsed) ? parsed : [];
-      } catch (parseError) {
-        console.error('Error parsing existing file list:', parseError);
+        // Decrypt existing file list
+        existingFiles = await SecureFileIndex.decryptFileList(
+          existingData.encrypted_file_list,
+          password,
+          existingData.salt,
+          existingData.iv || ''
+        );
+      } catch (decryptError) {
+        console.error('Error decrypting existing file list:', decryptError);
         existingFiles = [];
       }
     }
@@ -161,13 +248,17 @@ export async function updateUserFileList(userId: string, newFile: EncryptedFileM
     const updatedFiles = existingFiles.filter(file => file.fileId !== newFile.fileId);
     updatedFiles.push(newFile);
 
+    // Encrypt the updated file list
+    const { encryptedData, salt, iv } = await SecureFileIndex.encryptFileList(updatedFiles, password);
+
     // Store updated file list
     const { error: upsertError } = await supabase
       .from('user_file_index')
       .upsert({
         user_id: userId,
-        encrypted_file_list: JSON.stringify(updatedFiles),
-        salt: 'no-salt-needed'
+        encrypted_file_list: encryptedData,
+        salt,
+        iv
       }, {
         onConflict: 'user_id'
       });
@@ -216,8 +307,7 @@ export async function deleteEncryptedFile(fileId: string): Promise<void> {
 
     if (dbError) throw dbError;
 
-    // Update user's file list
-    await removeFromUserFileList(user.id, fileId);
+    // Note: removeFromUserFileList needs password parameter - will be handled by UI
 
     // Log delete action
     await logAction('delete', { fileId });
@@ -228,24 +318,35 @@ export async function deleteEncryptedFile(fileId: string): Promise<void> {
 }
 
 // Remove file from user's encrypted file list
-export async function removeFromUserFileList(userId: string, fileId: string): Promise<void> {
+export async function removeFromUserFileList(userId: string, password: string, fileId: string): Promise<void> {
   try {
     const { data: currentData } = await supabase
       .from('user_file_index')
-      .select('encrypted_file_list, salt')
+      .select('encrypted_file_list, salt, iv')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (!currentData) return;
 
-    // Parse the current list directly (no decryption needed)
-    const currentList = JSON.parse(currentData.encrypted_file_list || '[]');
+    // Decrypt the current list
+    const currentList = await SecureFileIndex.decryptFileList(
+      currentData.encrypted_file_list,
+      password,
+      currentData.salt,
+      currentData.iv || ''
+    );
+    
     const updatedList = currentList.filter((file: any) => file.fileId !== fileId);
+
+    // Re-encrypt the updated list
+    const { encryptedData, salt, iv } = await SecureFileIndex.encryptFileList(updatedList, password);
 
     await supabase
       .from('user_file_index')
       .update({
-        encrypted_file_list: JSON.stringify(updatedList)
+        encrypted_file_list: encryptedData,
+        salt,
+        iv
       })
       .eq('user_id', userId);
   } catch (error) {
@@ -344,17 +445,7 @@ export async function downloadEncryptedFile(fileId: string, key: string, iv: str
       .update({ download_count: newDownloadCount })
       .eq('file_id', fileId);
 
-    // Update the user's file list with new download count
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const fileList = await getUserFileList();
-      const updatedFileList = fileList.map(file => 
-        file.fileId === fileId 
-          ? { ...file, downloadCount: newDownloadCount }
-          : file
-      );
-      await updateUserFileListData(user.id, updatedFileList);
-    }
+    // Note: Download count update in encrypted file list needs password - handled by UI
 
     // Log download action
     await logAction('download', { fileId });
@@ -364,17 +455,18 @@ export async function downloadEncryptedFile(fileId: string, key: string, iv: str
   }
 }
 
-// Helper function to update file list data
-async function updateUserFileListData(userId: string, fileList: EncryptedFileMetadata[]): Promise<void> {
+// Helper function to update file list data with encryption
+export async function updateUserFileListData(userId: string, password: string, fileList: EncryptedFileMetadata[]): Promise<void> {
   try {
-    const serializedList = JSON.stringify(fileList);
+    const { encryptedData, salt, iv } = await SecureFileIndex.encryptFileList(fileList, password);
     
     await supabase
       .from('user_file_index')
       .upsert({
         user_id: userId,
-        encrypted_file_list: serializedList,
-        salt: 'no-salt-needed'
+        encrypted_file_list: encryptedData,
+        salt,
+        iv
       }, {
         onConflict: 'user_id'
       });
