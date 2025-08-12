@@ -29,6 +29,8 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [showDownloadPasswordPrompt, setShowDownloadPasswordPrompt] = useState(false);
+  const [pendingDownloadFile, setPendingDownloadFile] = useState<EncryptedFileMetadata | null>(null);
   const { toast } = useToast();
 
   const loadFiles = async (password?: string) => {
@@ -90,30 +92,55 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   };
 
   const handleDownload = async (file: EncryptedFileMetadata) => {
+    // Show password prompt for download
+    setPendingDownloadFile(file);
+    setShowDownloadPasswordPrompt(true);
+  };
+
+  const handleDownloadWithPassword = async (password: string) => {
+    if (!pendingDownloadFile) return;
+    
     try {
-      setDownloading(file.fileId);
-      await downloadEncryptedFile(file.fileId, file.key, file.iv);
+      setDownloading(pendingDownloadFile.fileId);
+      setShowDownloadPasswordPrompt(false);
+      
+      // Verify password by trying to decrypt file list
+      await getUserFileList(password);
+      
+      // If password is correct, proceed with download
+      await downloadEncryptedFile(pendingDownloadFile.fileId, pendingDownloadFile.key, pendingDownloadFile.iv);
       
       // Update the download count in the local state immediately
       setFiles(prev => prev.map(f => 
-        f.fileId === file.fileId 
+        f.fileId === pendingDownloadFile.fileId 
           ? { ...f, downloadCount: f.downloadCount + 1 }
           : f
       ));
       
       toast({
         title: "Download started",
-        description: `${file.originalName} is being downloaded`
+        description: `${pendingDownloadFile.originalName} is being downloaded`
       });
     } catch (error: any) {
       console.error('Download error:', error);
-      toast({
-        title: "Download failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      if (error.message.includes('Incorrect password') || error.message.includes('Invalid password')) {
+        toast({
+          title: "Download failed",
+          description: "Incorrect password. Please try again.",
+          variant: "destructive"
+        });
+        // Reopen password prompt for retry
+        setShowDownloadPasswordPrompt(true);
+      } else {
+        toast({
+          title: "Download failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
     } finally {
       setDownloading(null);
+      setPendingDownloadFile(null);
     }
   };
 
@@ -357,6 +384,17 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
         onCancel={() => setShowPasswordPrompt(false)}
         title="Decrypt File List"
         description="Enter your password to decrypt and view your files:"
+      />
+      
+      <PasswordPrompt
+        isOpen={showDownloadPasswordPrompt}
+        onSubmit={handleDownloadWithPassword}
+        onCancel={() => {
+          setShowDownloadPasswordPrompt(false);
+          setPendingDownloadFile(null);
+        }}
+        title="Verify Download"
+        description={`Enter your password to download "${pendingDownloadFile?.originalName}":`}
       />
     </Card>
   );
