@@ -124,6 +124,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_encrypted_file: {
+        Args: { file_id_param: string }
+        Returns: boolean
+      }
       generate_file_id: {
         Args: Record<PropertyKey, never>
         Returns: string
