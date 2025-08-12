@@ -15,7 +15,7 @@ import {
   RefreshCw,
   Shield
 } from 'lucide-react';
-import { deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
+import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
 import {
   AlertDialog,
@@ -44,13 +44,9 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const loadFiles = async () => {
     try {
       setLoading(true);
-      // For now, just set empty array since we're removing password functionality
+      // Since we removed password functionality, just show empty list for now
+      // TODO: Implement password-less file listing or store file metadata differently
       setFiles([]);
-      toast({
-        title: "File list access disabled",
-        description: "File list viewing has been temporarily disabled",
-        variant: "default"
-      });
     } catch (error: any) {
       console.error('Error loading files:', error);
       toast({
@@ -58,6 +54,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
         description: error.message,
         variant: "destructive"
       });
+      setFiles([]);
     } finally {
       setLoading(false);
     }
