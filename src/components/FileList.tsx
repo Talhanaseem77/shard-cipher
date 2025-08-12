@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { 
   File, 
   Download, 
@@ -26,6 +27,8 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
 
   const loadFiles = async () => {
@@ -51,15 +54,18 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     loadFiles();
   }, [refreshTrigger]);
 
-  const handleDelete = async (fileId: string) => {
-    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteClick = (fileId: string, fileName: string) => {
+    setFileToDelete({ id: fileId, name: fileName });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!fileToDelete) return;
 
     try {
-      setDeleting(fileId);
-      await deleteEncryptedFile(fileId);
-      setFiles(prev => prev.filter(file => file.fileId !== fileId));
+      setDeleting(fileToDelete.id);
+      await deleteEncryptedFile(fileToDelete.id);
+      setFiles(prev => prev.filter(file => file.fileId !== fileToDelete.id));
       toast({
         title: "File deleted",
         description: "The file has been permanently deleted"
@@ -73,6 +79,8 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
       });
     } finally {
       setDeleting(null);
+      setDeleteDialogOpen(false);
+      setFileToDelete(null);
     }
   };
 
@@ -256,7 +264,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDelete(file.fileId)}
+                    onClick={() => handleDeleteClick(file.fileId, file.originalName)}
                     disabled={deleting === file.fileId}
                     className="text-destructive hover:text-destructive"
                   >
@@ -286,6 +294,14 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           </div>
         )}
       </CardContent>
+      
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        fileName={fileToDelete?.name || ''}
+        isDeleting={deleting === fileToDelete?.id}
+      />
     </Card>
   );
 };
