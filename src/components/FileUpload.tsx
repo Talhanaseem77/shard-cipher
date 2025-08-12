@@ -6,9 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileCheck, AlertCircle, Copy, ExternalLink } from 'lucide-react';
-import { uploadEncryptedFile, getUserFileList, updateUserFileList } from '@/lib/fileManager';
-import { PasswordPrompt } from '@/components/PasswordPrompt';
-import { supabase } from '@/integrations/supabase/client';
+import { uploadEncryptedFile } from '@/lib/fileManager';
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -23,8 +21,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const [customExpiry, setCustomExpiry] = useState<string>('');
   const [expiryMode, setExpiryMode] = useState<'preset' | 'custom'>('preset');
   const [maxDownloads, setMaxDownloads] = useState<number>(0);
-  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -72,43 +68,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       return;
     }
 
-    // Store file for later and prompt for password to check duplicates
-    setPendingFile(file);
-    setShowPasswordPrompt(true);
+    // Proceed directly with upload
+    await performUpload(file);
   };
 
-  const handlePasswordSubmit = async (password: string) => {
-    if (!pendingFile) return;
-    
-    // Close popup immediately when password is submitted
-    setShowPasswordPrompt(false);
-    
-    // Check for duplicate files
-    try {
-      const existingFiles = await getUserFileList(password);
-      const duplicateFile = existingFiles.find(
-        existingFile => existingFile.originalName === pendingFile.name && existingFile.size === pendingFile.size
-      );
-      
-      if (duplicateFile) {
-        toast({
-          title: "File already uploaded",
-          description: `${pendingFile.name} has already been uploaded previously`,
-          variant: "destructive"
-        });
-        setPendingFile(null);
-        return;
-      }
-    } catch (error) {
-      console.log('Could not check for duplicates, proceeding with upload...');
-    }
 
-    await performUpload(pendingFile, password);
-    setPendingFile(null);
-  };
-
-  const performUpload = async (file: File, password?: string) => {
-
+  const performUpload = async (file: File) => {
     console.log('File validation passed, starting upload process...');
     setIsUploading(true);
     setUploadProgress(0);
@@ -140,32 +105,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
       console.log('Upload completed successfully:', result);
       
-      // Now update the user's encrypted file list with the password
-      if (password) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const fileMetadata = {
-            id: result.fileId,
-            fileId: result.fileId,
-            originalName: file.name,
-            size: file.size,
-            type: file.type,
-            uploadDate: new Date().toISOString(),
-            expiresAt: finalExpiryDays > 0 ? new Date(Date.now() + finalExpiryDays * 24 * 60 * 60 * 1000).toISOString() : undefined,
-            maxDownloads: maxDownloads > 0 ? maxDownloads : undefined,
-            downloadCount: 0,
-            key: '', // These will be extracted from the download URL
-            iv: ''
-          };
-          
-          // Extract key and iv from download URL
-          const urlParams = new URLSearchParams(result.downloadUrl.split('#')[1]);
-          fileMetadata.key = urlParams.get('key') || '';
-          fileMetadata.iv = urlParams.get('iv') || '';
-          
-          await updateUserFileList(user.id, fileMetadata, password);
-        }
-      }
       clearInterval(progressInterval);
       setUploadProgress(100);
       setUploadResult(result);
@@ -422,17 +361,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           </div>
         )}
       </CardContent>
-      
-      <PasswordPrompt
-        isOpen={showPasswordPrompt}
-        onSubmit={handlePasswordSubmit}
-        onCancel={() => {
-          setShowPasswordPrompt(false);
-          setPendingFile(null);
-        }}
-        title="Verify Upload"
-        description="Enter your PIN to check for duplicate files:"
-      />
     </Card>
   );
 };

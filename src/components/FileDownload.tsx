@@ -4,16 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Lock, AlertTriangle, FileX, Loader2 } from 'lucide-react';
-import { downloadEncryptedFile, getUserFileList } from '@/lib/fileManager';
+import { downloadEncryptedFile } from '@/lib/fileManager';
 import { parseUrlFragment, base64ToArrayBuffer } from '@/lib/encryption';
-import { PasswordPrompt } from '@/components/PasswordPrompt';
 
 export const FileDownload: React.FC = () => {
   const { fileId } = useParams<{ fileId: string }>();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileInfo, setFileInfo] = useState<any>(null);
-  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -37,11 +36,6 @@ export const FileDownload: React.FC = () => {
   }, []);
 
   const handleDownload = async () => {
-    // Show password prompt first
-    setShowPasswordPrompt(true);
-  };
-
-  const handleDownloadWithPassword = async (password: string) => {
     if (!fileId) {
       setError('File ID not found');
       return;
@@ -56,12 +50,8 @@ export const FileDownload: React.FC = () => {
     try {
       setDownloading(true);
       setError(null);
-      setShowPasswordPrompt(false);
       
-      // Verify password by trying to decrypt file list
-      await getUserFileList(password);
-      
-      // If password is correct, proceed with download
+      // Proceed directly with download
       await downloadEncryptedFile(fileId, key, iv);
       
       toast({
@@ -70,26 +60,17 @@ export const FileDownload: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Download error:', error);
-      if (error.message.includes('Incorrect password') || error.message.includes('Invalid password')) {
-        toast({
-          title: "Download failed",
-          description: "Incorrect password. Please try again.",
-          variant: "destructive"
-        });
-        // Reopen password prompt for retry
-        setShowPasswordPrompt(true);
-      } else {
-        setError(error.message || 'Download failed');
-        toast({
-          title: "Download failed",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
+      setError(error.message || 'Download failed');
+      toast({
+        title: "Download failed",
+        description: error.message,
+        variant: "destructive"
+      });
     } finally {
       setDownloading(false);
     }
   };
+
 
   if (error) {
     return (
@@ -179,13 +160,6 @@ export const FileDownload: React.FC = () => {
         </CardContent>
       </Card>
       
-      <PasswordPrompt
-        isOpen={showPasswordPrompt}
-        onSubmit={handleDownloadWithPassword}
-        onCancel={() => setShowPasswordPrompt(false)}
-        title="Verify Download"
-        description="Enter your PIN to verify and download this file:"
-      />
     </div>
   );
 };
