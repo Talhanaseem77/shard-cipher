@@ -431,7 +431,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           setPendingFile(null);
         }}
         title="Verify Upload"
-        description="Enter your password to check for duplicate files:"
+        description="Enter your PIN to check for duplicate files:"
       />
     </Card>
   );

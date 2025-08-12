@@ -184,7 +184,7 @@ export const FileDownload: React.FC = () => {
         onSubmit={handleDownloadWithPassword}
         onCancel={() => setShowPasswordPrompt(false)}
         title="Verify Download"
-        description="Enter your password to verify and download this file:"
+        description="Enter your PIN to verify and download this file:"
       />
     </div>
   );

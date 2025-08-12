@@ -16,8 +16,8 @@ export function PasswordPrompt({
   isOpen, 
   onSubmit, 
   onCancel, 
-  title = "Enter Password",
-  description = "Please enter your password to decrypt your file list:"
+  title = "Enter PIN",
+  description = "Please enter your PIN to decrypt your file list:"
 }: PasswordPromptProps) {
   const [password, setPassword] = useState('');
 
@@ -49,7 +49,7 @@ export function PasswordPrompt({
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Enter your PIN"
               autoFocus
             />
           </div>

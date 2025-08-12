@@ -410,8 +410,8 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           setShowDownloadPasswordPrompt(false);
           setPendingDownloadFile(null);
         }}
-        title="Verify Download"
-        description={`Enter your password to download "${pendingDownloadFile?.originalName}":`}
+        title="Verify PIN"
+        description={`Enter your PIN to download "${pendingDownloadFile?.originalName}":`}
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
