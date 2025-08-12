@@ -2,6 +2,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { encryptFile, encryptFileList, decryptFileList } from '@/lib/encryption';
 import { SecureFileIndex } from '@/lib/secureFileIndex';
 
+// Helper function to safely decode base64
+function safeAtob(str: string): Uint8Array {
+  if (!str || str.length === 0) {
+    throw new Error('Empty base64 string');
+  }
+  try {
+    return new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
+  } catch (error) {
+    console.error('Base64 decode error:', error, 'String:', str);
+    throw new Error('Invalid base64 string');
+  }
+}
+
+// Helper function to safely encode to base64
+function safeBtoa(buffer: ArrayBuffer | Uint8Array): string {
+  const uint8Array = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
+  return btoa(String.fromCharCode(...uint8Array));
+}
+
 export interface EncryptedFileMetadata {
   id: string;
   fileId: string;
@@ -79,8 +98,8 @@ export async function uploadEncryptedFile(
     if (dbError) throw dbError;
 
     // Encrypt file key and IV with user's master key
-    const keyBuffer = new Uint8Array(atob(key).split('').map(c => c.charCodeAt(0)));
-    const ivBuffer = new Uint8Array(atob(iv).split('').map(c => c.charCodeAt(0)));
+    const keyBuffer = safeAtob(key);
+    const ivBuffer = safeAtob(iv);
     
     // Generate a random IV for encrypting the file key/IV
     const masterKeyIv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -108,12 +127,12 @@ export async function uploadEncryptedFile(
       expiresAt,
       maxDownloads,
       downloadCount: 0,
-      encryptedKey: btoa(String.fromCharCode(...new Uint8Array(encryptedKey))),
-      encryptedIv: btoa(String.fromCharCode(...new Uint8Array(encryptedIv)))
+      encryptedKey: safeBtoa(encryptedKey),
+      encryptedIv: safeBtoa(encryptedIv)
     };
 
     // Update user's encrypted file list
-    await updateUserFileList(user.id, password, fileMetadata, btoa(String.fromCharCode(...masterKeyIv)));
+    await updateUserFileList(user.id, password, fileMetadata, safeBtoa(masterKeyIv));
 
     // Generate download URL
     const downloadUrl = `${window.location.origin}/download/${fileId}?key=${encodeURIComponent(key)}&iv=${encodeURIComponent(iv)}`;
@@ -177,28 +196,39 @@ export async function getDecryptedFileList(userKey: CryptoKey): Promise<Decrypte
     const decryptedList: DecryptedFileMetadata[] = await Promise.all(
       encryptedFileList.map(async (file) => {
         try {
+          // Validate that we have the required encrypted data
+          if (!file.encryptedKey || !file.encryptedIv || !indexData.iv) {
+            console.error('Missing encrypted key data for file:', file.fileId);
+            const { encryptedKey, encryptedIv, ...fileWithoutEncrypted } = file;
+            return {
+              ...fileWithoutEncrypted,
+              key: 'Missing key data',
+              iv: 'Missing key data'
+            };
+          }
+
           // Use the stored IV for decrypting file keys
-          const masterKeyIv = new Uint8Array(atob(indexData.iv || '').split('').map(c => c.charCodeAt(0)));
+          const masterKeyIv = safeAtob(indexData.iv);
           
           // Decrypt file key and IV using user's master key
           const keyBytes = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: masterKeyIv },
             userKey,
-            new Uint8Array(atob(file.encryptedKey).split('').map(c => c.charCodeAt(0)))
+            safeAtob(file.encryptedKey)
           );
           
           const ivBytes = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: masterKeyIv },
             userKey,
-            new Uint8Array(atob(file.encryptedIv).split('').map(c => c.charCodeAt(0)))
+            safeAtob(file.encryptedIv)
           );
           
           const { encryptedKey, encryptedIv, ...fileWithoutEncrypted } = file;
           
           return {
             ...fileWithoutEncrypted,
-            key: btoa(String.fromCharCode(...new Uint8Array(keyBytes))),
-            iv: btoa(String.fromCharCode(...new Uint8Array(ivBytes)))
+            key: safeBtoa(keyBytes),
+            iv: safeBtoa(ivBytes)
           };
         } catch (error) {
           console.error('Error decrypting file keys:', error);
@@ -330,8 +360,8 @@ export async function downloadFile(fileId: string, key: string, iv: string): Pro
 
     // Decrypt file
     const arrayBuffer = await data.arrayBuffer();
-    const keyBuffer = new Uint8Array(atob(key).split('').map(c => c.charCodeAt(0)));
-    const ivBuffer = new Uint8Array(atob(iv).split('').map(c => c.charCodeAt(0)));
+    const keyBuffer = safeAtob(key);
+    const ivBuffer = safeAtob(iv);
 
     const cryptoKey = await window.crypto.subtle.importKey(
       'raw',
