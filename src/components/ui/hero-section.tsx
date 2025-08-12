@@ -2,15 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Shield, Lock, Key, Upload } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroBg from "@/assets/hero-bg.jpg";
-
 export const HeroSection = () => {
-  return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+  return <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
-        style={{ backgroundImage: `url(${heroBg})` }}
-      />
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20" style={{
+      backgroundImage: `url(${heroBg})`
+    }} />
       <div className="absolute inset-0 bg-gradient-dark" />
       
       {/* Content */}
@@ -59,13 +56,7 @@ export const HeroSection = () => {
               </p>
             </div>
             
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
-              <Shield className="w-8 h-8 text-primary mb-4 mx-auto" />
-              <h3 className="font-semibold text-lg mb-2">Zero-Trust Architecture</h3>
-              <p className="text-muted-foreground text-sm">
-                No trust in server infrastructure. Your keys, your control.
-              </p>
-            </div>
+            
             
             <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
               <Lock className="w-8 h-8 text-primary mb-4 mx-auto" />
@@ -77,6 +68,5 @@ export const HeroSection = () => {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
