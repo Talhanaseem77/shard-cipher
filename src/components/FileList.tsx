@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
+import { PasswordPrompt } from '@/components/PasswordPrompt';
 
 interface FileListProps {
   refreshTrigger?: number;
@@ -26,22 +27,27 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const { toast } = useToast();
 
-  const loadFiles = async () => {
+  const loadFiles = async (password?: string) => {
+    if (!password) {
+      setShowPasswordPrompt(true);
+      return;
+    }
+    
     try {
       setLoading(true);
-      const fileList = await getUserFileList();
+      const fileList = await getUserFileList(password);
       setFiles(fileList);
+      setShowPasswordPrompt(false);
     } catch (error: any) {
       console.error('Error loading files:', error);
-      if (error.message !== 'Password required') {
-        toast({
-          title: "Error loading files",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error loading files",
+        description: error.message,
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -276,7 +282,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           <div className="mt-6 pt-4 border-t border-border">
             <Button
               variant="outline"
-              onClick={loadFiles}
+              onClick={() => loadFiles()}
               disabled={loading}
               className="w-full"
             >
@@ -286,6 +292,14 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           </div>
         )}
       </CardContent>
+      
+      <PasswordPrompt
+        isOpen={showPasswordPrompt}
+        onSubmit={(password) => loadFiles(password)}
+        onCancel={() => setShowPasswordPrompt(false)}
+        title="Decrypt File List"
+        description="Enter your password to decrypt and view your files:"
+      />
     </Card>
   );
 };
