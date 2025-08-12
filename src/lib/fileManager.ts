@@ -5,13 +5,26 @@ import { SecureFileIndex } from '@/lib/secureFileIndex';
 // Helper function to safely decode base64
 function safeAtob(str: string): Uint8Array {
   if (!str || str.length === 0) {
+    console.error('Empty base64 string provided');
     throw new Error('Empty base64 string');
   }
+  
+  // Clean the string - remove any whitespace and ensure proper padding
+  let cleanStr = str.trim();
+  
+  // Add padding if needed
+  while (cleanStr.length % 4 !== 0) {
+    cleanStr += '=';
+  }
+  
   try {
-    return new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
+    const decoded = atob(cleanStr);
+    return new Uint8Array(decoded.split('').map(c => c.charCodeAt(0)));
   } catch (error) {
-    console.error('Base64 decode error:', error, 'String:', str);
-    throw new Error('Invalid base64 string');
+    console.error('Base64 decode error:', error);
+    console.error('Problematic string:', str);
+    console.error('Cleaned string:', cleanStr);
+    throw new Error(`Invalid base64 string: ${str.substring(0, 20)}...`);
   }
 }
 
@@ -194,20 +207,45 @@ export async function getDecryptedFileList(userKey: CryptoKey): Promise<Decrypte
       .eq('user_id', user.id)
       .maybeSingle();
 
+    console.log('Database response:', { indexData, indexError });
+
     if (indexError) throw indexError;
     if (!indexData || !indexData.encrypted_file_list || !indexData.salt) {
+      console.log('No file list found for user');
       return []; // Return empty array if no file list found
     }
 
     // Decrypt the file list to get EncryptedFileMetadata
+    console.log('About to decrypt file list with salt:', indexData.salt);
     const encryptedFileList = await decryptFileList(indexData.encrypted_file_list, 'dummy-password', indexData.salt);
+    console.log('Decrypted file list:', encryptedFileList);
+    
+    // Handle case where IV is not set (first time setup)
+    if (!indexData.iv) {
+      console.warn('No IV found in database - files uploaded without proper key encryption');
+      return encryptedFileList.map(file => {
+        const { encryptedKey, encryptedIv, ...fileWithoutEncrypted } = file;
+        return {
+          ...fileWithoutEncrypted,
+          key: 'Legacy file - no key encryption',
+          iv: 'Legacy file - no key encryption'
+        };
+      });
+    }
     
     // Now decrypt individual file keys for UI display
     const decryptedList: DecryptedFileMetadata[] = await Promise.all(
       encryptedFileList.map(async (file) => {
         try {
+          console.log('Processing file:', file.fileId, 'with keys:', {
+            hasEncryptedKey: !!file.encryptedKey,
+            hasEncryptedIv: !!file.encryptedIv,
+            encryptedKeyLength: file.encryptedKey?.length,
+            encryptedIvLength: file.encryptedIv?.length
+          });
+
           // Validate that we have the required encrypted data
-          if (!file.encryptedKey || !file.encryptedIv || !indexData.iv) {
+          if (!file.encryptedKey || !file.encryptedIv) {
             console.error('Missing encrypted key data for file:', file.fileId);
             const { encryptedKey, encryptedIv, ...fileWithoutEncrypted } = file;
             return {
@@ -218,19 +256,26 @@ export async function getDecryptedFileList(userKey: CryptoKey): Promise<Decrypte
           }
 
           // Use the stored IV for decrypting file keys
+          console.log('Decoding master IV:', indexData.iv);
           const masterKeyIv = safeAtob(indexData.iv);
+          console.log('Master IV decoded successfully, length:', masterKeyIv.length);
+          
+          console.log('Decoding encrypted keys...');
+          const encryptedKeyBuffer = safeAtob(file.encryptedKey);
+          const encryptedIvBuffer = safeAtob(file.encryptedIv);
+          console.log('Keys decoded successfully');
           
           // Decrypt file key and IV using user's master key
           const keyBytes = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: masterKeyIv },
             userKey,
-            safeAtob(file.encryptedKey)
+            encryptedKeyBuffer
           );
           
           const ivBytes = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: masterKeyIv },
             userKey,
-            safeAtob(file.encryptedIv)
+            encryptedIvBuffer
           );
           
           const { encryptedKey, encryptedIv, ...fileWithoutEncrypted } = file;
