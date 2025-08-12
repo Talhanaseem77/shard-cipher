@@ -183,9 +183,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
         <CardContent>
           <div className="text-center py-12">
             <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">Files are encrypted</h3>
+            <h3 className="text-lg font-medium mb-2">Secure File Storage</h3>
             <p className="text-muted-foreground mb-4">
-              Your files are secured with password-based encryption
+              Your files are protected with password-based encryption.<br/>
+              Upload a file first, then use the same password to view your file list.
             </p>
             <Button onClick={() => setShowPasswordPrompt(true)}>
               Enter Password to View Files

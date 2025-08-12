@@ -108,7 +108,10 @@ export async function getUserFileList(password: string): Promise<EncryptedFileMe
       .maybeSingle();
 
     if (error) throw error;
-    if (!data || !data.encrypted_file_list) return [];
+    if (!data || !data.encrypted_file_list) {
+      // No encrypted file list exists yet - this is normal for new users
+      return [];
+    }
 
     // Decrypt the file list using password
     try {
@@ -121,7 +124,12 @@ export async function getUserFileList(password: string): Promise<EncryptedFileMe
       return Array.isArray(decryptedFileList) ? decryptedFileList : [];
     } catch (decryptError) {
       console.error('Error decrypting file list - wrong password?:', decryptError);
-      throw new Error('Invalid password or corrupted data');
+      // More specific error message
+      if (!data.encrypted_file_list) {
+        throw new Error('No files uploaded yet. Upload a file first to create your encrypted file list.');
+      } else {
+        throw new Error('Incorrect password. Please enter the password you used when uploading your first file.');
+      }
     }
   } catch (error) {
     console.error('Error getting file list:', error);
