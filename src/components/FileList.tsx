@@ -40,9 +40,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     
     try {
       setLoading(true);
+      setShowPasswordPrompt(false); // Close popup immediately when attempting to load
       const fileList = await getUserFileList(password);
       setFiles(fileList);
-      setShowPasswordPrompt(false);
+      // Keep popup closed on success
     } catch (error: any) {
       console.error('Error loading files:', error);
       toast({
@@ -51,7 +52,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
         variant: "destructive"
       });
       // Show password prompt again if decryption failed
-      if (error.message.includes('Invalid password')) {
+      if (error.message.includes('Incorrect password') || error.message.includes('Invalid password')) {
         setShowPasswordPrompt(true);
       }
     } finally {

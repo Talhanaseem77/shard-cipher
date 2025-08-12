@@ -25,7 +25,8 @@ export function PasswordPrompt({
     e.preventDefault();
     if (password.trim()) {
       onSubmit(password.trim());
-      setPassword('');
+      setPassword(''); // Clear password immediately
+      // Don't call onCancel here - let the parent component handle closing
     }
   };
 

@@ -80,6 +80,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const handlePasswordSubmit = async (password: string) => {
     if (!pendingFile) return;
     
+    // Close popup immediately when password is submitted
+    setShowPasswordPrompt(false);
+    
     // Check for duplicate files
     try {
       const existingFiles = await getUserFileList(password);
@@ -94,7 +97,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           variant: "destructive"
         });
         setPendingFile(null);
-        setShowPasswordPrompt(false);
         return;
       }
     } catch (error) {
@@ -103,7 +105,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
     await performUpload(pendingFile, password);
     setPendingFile(null);
-    setShowPasswordPrompt(false);
   };
 
   const performUpload = async (file: File, password?: string) => {
