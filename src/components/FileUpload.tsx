@@ -18,6 +18,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<{ fileId: string; downloadUrl: string } | null>(null);
   const [expiryDays, setExpiryDays] = useState<number>(30);
+  const [customExpiry, setCustomExpiry] = useState<string>('');
+  const [expiryMode, setExpiryMode] = useState<'preset' | 'custom'>('preset');
   const [maxDownloads, setMaxDownloads] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -97,15 +99,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
         setUploadProgress(prev => Math.min(prev + 10, 80));
       }, 200);
 
+      // Calculate final expiry days
+      const finalExpiryDays = expiryMode === 'custom' 
+        ? parseInt(customExpiry) || 0
+        : expiryDays;
+
       console.log('Calling uploadEncryptedFile with params:', {
         fileName: file.name,
-        expiryDays: expiryDays > 0 ? expiryDays : undefined,
+        expiryDays: finalExpiryDays > 0 ? finalExpiryDays : undefined,
         maxDownloads: maxDownloads > 0 ? maxDownloads : undefined
       });
 
       const result = await uploadEncryptedFile(
         file,
-        expiryDays > 0 ? expiryDays : undefined,
+        finalExpiryDays > 0 ? finalExpiryDays : undefined,
         maxDownloads > 0 ? maxDownloads : undefined
       );
 
@@ -178,19 +185,43 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expiry">Expiry</Label>
-                <select
-                  id="expiry"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={expiryDays}
-                  onChange={(e) => setExpiryDays(parseInt(e.target.value))}
-                >
-                  <option value={0}>Never expires</option>
-                  <option value={1}>1 day</option>
-                  <option value={7}>1 week</option>
-                  <option value={30}>1 month</option>
-                  <option value={90}>3 months</option>
-                  <option value={365}>1 year</option>
-                </select>
+                <div className="space-y-2">
+                  <select
+                    id="expiry-mode"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={expiryMode}
+                    onChange={(e) => setExpiryMode(e.target.value as 'preset' | 'custom')}
+                  >
+                    <option value="preset">Preset Options</option>
+                    <option value="custom">Custom Days</option>
+                  </select>
+                  
+                  {expiryMode === 'preset' ? (
+                    <select
+                      id="expiry"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={expiryDays}
+                      onChange={(e) => setExpiryDays(parseInt(e.target.value))}
+                    >
+                      <option value={0}>Never expires</option>
+                      <option value={1}>1 day</option>
+                      <option value={7}>1 week</option>
+                      <option value={30}>1 month</option>
+                      <option value={90}>3 months</option>
+                      <option value={365}>1 year</option>
+                    </select>
+                  ) : (
+                    <Input
+                      id="custom-expiry"
+                      type="number"
+                      min="0"
+                      max="3650"
+                      value={customExpiry}
+                      onChange={(e) => setCustomExpiry(e.target.value)}
+                      placeholder="0 for never expires, or enter days"
+                    />
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="downloads">Max Downloads</Label>

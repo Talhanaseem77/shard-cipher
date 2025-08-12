@@ -5,6 +5,7 @@ import { Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { FileUpload } from "@/components/FileUpload";
 import { FileList } from "@/components/FileList";
+import { ActivityLog } from "@/components/ActivityLog";
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -51,6 +52,11 @@ export default function Dashboard() {
 
         {/* File List Section */}
         <FileList refreshTrigger={refreshTrigger} />
+
+        {/* Activity Log Section */}
+        <div className="mb-8">
+          <ActivityLog />
+        </div>
 
         {/* Security Notice */}
         <Card className="mt-8 bg-card/50 backdrop-blur-sm border-border/50">
