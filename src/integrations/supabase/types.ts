@@ -507,7 +507,6 @@ export type Database = {
           created_at: string
           encrypted_file_list: string
           id: string
-          iv: string
           salt: string
           updated_at: string
           user_id: string
@@ -516,7 +515,6 @@ export type Database = {
           created_at?: string
           encrypted_file_list: string
           id?: string
-          iv?: string
           salt: string
           updated_at?: string
           user_id: string
@@ -525,7 +523,6 @@ export type Database = {
           created_at?: string
           encrypted_file_list?: string
           id?: string
-          iv?: string
           salt?: string
           updated_at?: string
           user_id?: string
@@ -599,10 +596,6 @@ export type Database = {
       get_time_savings_multiplier: {
         Args: { task_type: string }
         Returns: number
-      }
-      increment_download_count: {
-        Args: { file_id: string }
-        Returns: undefined
       }
     }
     Enums: {
