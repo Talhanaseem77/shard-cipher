@@ -12,7 +12,8 @@ import {
   Clock, 
   Lock,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Shield
 } from 'lucide-react';
 import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
@@ -32,6 +33,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
 
   const loadFiles = async (password?: string) => {
     if (!password) {
+      setLoading(false); // Stop loading immediately
       setShowPasswordPrompt(true);
       return;
     }
@@ -48,6 +50,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
         description: error.message,
         variant: "destructive"
       });
+      // Show password prompt again if decryption failed
+      if (error.message.includes('Invalid password')) {
+        setShowPasswordPrompt(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -158,6 +164,41 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
             <span>Loading your files...</span>
           </div>
         </CardContent>
+      </Card>
+    );
+  }
+
+  if (showPasswordPrompt && files.length === 0) {
+    return (
+      <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <File className="w-5 h-5" />
+            Your Encrypted Files
+          </CardTitle>
+          <CardDescription>
+            Enter your password to decrypt and view your files.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12">
+            <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Files are encrypted</h3>
+            <p className="text-muted-foreground mb-4">
+              Your files are secured with password-based encryption
+            </p>
+            <Button onClick={() => setShowPasswordPrompt(true)}>
+              Enter Password to View Files
+            </Button>
+          </div>
+        </CardContent>
+        <PasswordPrompt
+          isOpen={showPasswordPrompt}
+          onSubmit={(password) => loadFiles(password)}
+          onCancel={() => setShowPasswordPrompt(false)}
+          title="Decrypt File List"
+          description="Enter your password to decrypt and view your files:"
+        />
       </Card>
     );
   }
