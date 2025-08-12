@@ -58,20 +58,6 @@ export default function Dashboard() {
           <ActivityLog />
         </div>
 
-        {/* Security Notice */}
-        <Card className="mt-8 bg-card/50 backdrop-blur-sm border-border/50">
-          <CardContent className="p-6">
-            <div className="text-center">
-              <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Zero-Trust Architecture</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                All files are encrypted client-side using AES-GCM before upload. 
-                Encryption keys are embedded in download URLs and never stored on our servers. 
-                Your data remains private with end-to-end encryption.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
