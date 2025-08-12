@@ -114,28 +114,16 @@ export async function getUserFileList(password?: string): Promise<EncryptedFileM
   try {
     const { data, error } = await supabase
       .from('user_file_index')
-      .select('encrypted_file_list, salt, encrypted_with_password')
+      .select('encrypted_file_list, salt')
       .eq('user_id', user.id)
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return [];
 
-    // Check if encryption is required
-    if (data.encrypted_with_password && !password) {
-      throw new Error('Password required');
-    }
-
     // Parse the file list
     try {
-      let fileList;
-      if (data.encrypted_with_password && password && data.salt) {
-        // Decrypt the file list (requires SecureFileIndex implementation)
-        console.log('File list is encrypted, password required for decryption');
-        fileList = JSON.parse(data.encrypted_file_list); // Temporary fallback
-      } else {
-        fileList = JSON.parse(data.encrypted_file_list);
-      }
+      const fileList = JSON.parse(data.encrypted_file_list);
       return Array.isArray(fileList) ? fileList : [];
     } catch (parseError) {
       console.error('Error parsing file list:', parseError);
@@ -385,7 +373,8 @@ async function updateUserFileListData(userId: string, fileList: EncryptedFileMet
       .from('user_file_index')
       .upsert({
         user_id: userId,
-        encrypted_file_list: serializedList
+        encrypted_file_list: serializedList,
+        salt: 'no-salt-needed'
       }, {
         onConflict: 'user_id'
       });

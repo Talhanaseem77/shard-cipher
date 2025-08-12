@@ -585,6 +585,14 @@ export type Database = {
         Args: { task_type: string }
         Returns: number
       }
+      get_public_profile: {
+        Args: { profile_user_id: string }
+        Returns: {
+          id: string
+          full_name: string
+          avatar_url: string
+        }[]
+      }
       get_time_savings_multiplier: {
         Args: { task_type: string }
         Returns: number
