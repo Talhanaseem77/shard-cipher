@@ -79,8 +79,8 @@ export async function uploadEncryptedFile(
     if (dbError) throw dbError;
 
     // Encrypt file key and IV with user's master key
-    const keyBuffer = Buffer.from(key, 'base64');
-    const ivBuffer = Buffer.from(iv, 'base64');
+    const keyBuffer = new Uint8Array(atob(key).split('').map(c => c.charCodeAt(0)));
+    const ivBuffer = new Uint8Array(atob(iv).split('').map(c => c.charCodeAt(0)));
     
     // Generate a random IV for encrypting the file key/IV
     const masterKeyIv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -108,12 +108,12 @@ export async function uploadEncryptedFile(
       expiresAt,
       maxDownloads,
       downloadCount: 0,
-      encryptedKey: Buffer.from(encryptedKey).toString('base64'),
-      encryptedIv: Buffer.from(encryptedIv).toString('base64')
+      encryptedKey: btoa(String.fromCharCode(...new Uint8Array(encryptedKey))),
+      encryptedIv: btoa(String.fromCharCode(...new Uint8Array(encryptedIv)))
     };
 
     // Update user's encrypted file list
-    await updateUserFileList(user.id, password, fileMetadata, Buffer.from(masterKeyIv).toString('base64'));
+    await updateUserFileList(user.id, password, fileMetadata, btoa(String.fromCharCode(...masterKeyIv)));
 
     // Generate download URL
     const downloadUrl = `${window.location.origin}/download/${fileId}?key=${encodeURIComponent(key)}&iv=${encodeURIComponent(iv)}`;
@@ -178,27 +178,27 @@ export async function getDecryptedFileList(userKey: CryptoKey): Promise<Decrypte
       encryptedFileList.map(async (file) => {
         try {
           // Use the stored IV for decrypting file keys
-          const masterKeyIv = new Uint8Array(Buffer.from(indexData.iv || '', 'base64'));
+          const masterKeyIv = new Uint8Array(atob(indexData.iv || '').split('').map(c => c.charCodeAt(0)));
           
           // Decrypt file key and IV using user's master key
           const keyBytes = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: masterKeyIv },
             userKey,
-            Buffer.from(file.encryptedKey, 'base64')
+            new Uint8Array(atob(file.encryptedKey).split('').map(c => c.charCodeAt(0)))
           );
           
           const ivBytes = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: masterKeyIv },
             userKey,
-            Buffer.from(file.encryptedIv, 'base64')
+            new Uint8Array(atob(file.encryptedIv).split('').map(c => c.charCodeAt(0)))
           );
           
           const { encryptedKey, encryptedIv, ...fileWithoutEncrypted } = file;
           
           return {
             ...fileWithoutEncrypted,
-            key: Buffer.from(keyBytes).toString('base64'),
-            iv: Buffer.from(ivBytes).toString('base64')
+            key: btoa(String.fromCharCode(...new Uint8Array(keyBytes))),
+            iv: btoa(String.fromCharCode(...new Uint8Array(ivBytes)))
           };
         } catch (error) {
           console.error('Error decrypting file keys:', error);
@@ -330,8 +330,8 @@ export async function downloadFile(fileId: string, key: string, iv: string): Pro
 
     // Decrypt file
     const arrayBuffer = await data.arrayBuffer();
-    const keyBuffer = Buffer.from(key, 'base64');
-    const ivBuffer = Buffer.from(iv, 'base64');
+    const keyBuffer = new Uint8Array(atob(key).split('').map(c => c.charCodeAt(0)));
+    const ivBuffer = new Uint8Array(atob(iv).split('').map(c => c.charCodeAt(0)));
 
     const cryptoKey = await window.crypto.subtle.importKey(
       'raw',
