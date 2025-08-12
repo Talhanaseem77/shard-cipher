@@ -92,6 +92,36 @@ export type Database = {
         }
         Relationships: []
       }
+      file_access_rate_limit: {
+        Row: {
+          access_count: number | null
+          created_at: string | null
+          file_id: string
+          id: string
+          ip_address: unknown | null
+          user_id: string | null
+          window_start: string | null
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string | null
+          file_id: string
+          id?: string
+          ip_address?: unknown | null
+          user_id?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          ip_address?: unknown | null
+          user_id?: string | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       user_file_index: {
         Row: {
           created_at: string
@@ -128,9 +158,21 @@ export type Database = {
         Args: { file_id_param: string }
         Returns: boolean
       }
+      check_file_access_rate_limit: {
+        Args: { file_id_param: string; max_requests_per_hour?: number }
+        Returns: boolean
+      }
+      encrypt_text: {
+        Args: { input_text: string; key_name: string }
+        Returns: string
+      }
       generate_file_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      log_security_event: {
+        Args: { event_type: string; event_data: Json; target_user_id?: string }
+        Returns: undefined
       }
     }
     Enums: {
