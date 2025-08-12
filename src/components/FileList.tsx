@@ -39,7 +39,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const { userKey } = useAuth();
 
   const loadFiles = async () => {
-    if (!userKey) return;
+    if (!userKey) {
+      console.warn('No user key available for file decryption');
+      return;
+    }
     
     try {
       setLoading(true);

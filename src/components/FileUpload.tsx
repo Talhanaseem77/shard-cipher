@@ -54,6 +54,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   };
 
   const handleFileUpload = async (file: File) => {
+    if (!userKey) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in again to upload files",
+        variant: "destructive"
+      });
+      return;
+    }
     if (!file) return;
 
     console.log('Starting file upload for:', file.name, 'size:', file.size);

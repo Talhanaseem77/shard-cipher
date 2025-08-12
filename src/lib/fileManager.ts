@@ -56,6 +56,11 @@ export async function uploadEncryptedFile(
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('User not authenticated');
 
+  // Validate userKey
+  if (!userKey || !(userKey instanceof CryptoKey)) {
+    throw new Error('Invalid user encryption key. Please log in again.');
+  }
+
   try {
     // Encrypt file client-side
     const { encryptedFile, encryptedMetadata, key, iv } = await encryptFile(file);
@@ -175,6 +180,11 @@ export async function getUserFileList(): Promise<EncryptedFileMetadata[]> {
 export async function getDecryptedFileList(userKey: CryptoKey): Promise<DecryptedFileMetadata[]> {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('User not authenticated');
+
+  // Validate userKey
+  if (!userKey || !(userKey instanceof CryptoKey)) {
+    throw new Error('Invalid user encryption key. Please log in again.');
+  }
 
   try {
     // Get encrypted file list from database
