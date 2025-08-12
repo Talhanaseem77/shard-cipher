@@ -126,7 +126,9 @@ export type Database = {
         Row: {
           created_at: string
           encrypted_file_list: string
+          encrypted_with_password: boolean | null
           id: string
+          password_hash: string | null
           salt: string | null
           updated_at: string
           user_id: string
@@ -134,7 +136,9 @@ export type Database = {
         Insert: {
           created_at?: string
           encrypted_file_list?: string
+          encrypted_with_password?: boolean | null
           id?: string
+          password_hash?: string | null
           salt?: string | null
           updated_at?: string
           user_id: string
@@ -142,7 +146,9 @@ export type Database = {
         Update: {
           created_at?: string
           encrypted_file_list?: string
+          encrypted_with_password?: boolean | null
           id?: string
+          password_hash?: string | null
           salt?: string | null
           updated_at?: string
           user_id?: string
@@ -161,6 +167,10 @@ export type Database = {
       check_file_access_rate_limit: {
         Args: { file_id_param: string; max_requests_per_hour?: number }
         Returns: boolean
+      }
+      derive_key_from_password: {
+        Args: { password: string; salt: string }
+        Returns: string
       }
       encrypt_text: {
         Args: { input_text: string; key_name: string }
