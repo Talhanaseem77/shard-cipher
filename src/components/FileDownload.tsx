@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Lock, AlertTriangle, FileX, Loader2 } from 'lucide-react';
-import { downloadEncryptedFile } from '@/lib/fileManager';
+import { downloadFile } from '@/lib/fileManager';
 import { parseUrlFragment, base64ToArrayBuffer } from '@/lib/encryption';
 
 export const FileDownload: React.FC = () => {

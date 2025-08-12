@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { 
   File, 
@@ -19,7 +20,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
-import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
+import { getDecryptedFileList, deleteFile, downloadFile, type DecryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
 
 interface FileListProps {
@@ -27,7 +28,7 @@ interface FileListProps {
 }
 
 export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
-  const [files, setFiles] = useState<EncryptedFileMetadata[]>([]);
+  const [files, setFiles] = useState<DecryptedFileMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -35,11 +36,14 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [fileToDelete, setFileToDelete] = useState<{ id: string; name: string } | null>(null);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { userKey } = useAuth();
 
   const loadFiles = async () => {
+    if (!userKey) return;
+    
     try {
       setLoading(true);
-      const fileList = await getUserFileList();
+      const fileList = await getDecryptedFileList(userKey);
       setFiles(fileList);
     } catch (error: any) {
       console.error('Error loading files:', error);
@@ -67,7 +71,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
 
     try {
       setDeleting(fileToDelete.id);
-      await deleteEncryptedFile(fileToDelete.id);
+      await deleteFile(fileToDelete.id);
       setFiles(prev => prev.filter(file => file.fileId !== fileToDelete.id));
       toast({
         title: "File deleted",
@@ -87,10 +91,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     }
   };
 
-  const handleDownload = async (file: EncryptedFileMetadata) => {
+  const handleDownload = async (file: DecryptedFileMetadata) => {
     try {
       setDownloading(file.fileId);
-      await downloadEncryptedFile(file.fileId, file.key, file.iv);
+      await downloadFile(file.fileId, file.key, file.iv);
       
       // Refresh the file list to update download count
       await loadFiles();
@@ -111,7 +115,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     }
   };
 
-  const handleShare = async (file: EncryptedFileMetadata) => {
+  const handleShare = async (file: DecryptedFileMetadata) => {
     try {
       const downloadUrl = generateDownloadUrl(file.fileId, file.key, file.iv);
       await navigator.clipboard.writeText(downloadUrl);

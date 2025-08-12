@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Upload, FileCheck, AlertCircle, Copy, ExternalLink } from 'lucide-react';
 import { uploadEncryptedFile, getUserFileList } from '@/lib/fileManager';
 
@@ -23,6 +24,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const [maxDownloads, setMaxDownloads] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { userKey } = useAuth();
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -112,6 +114,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
       const result = await uploadEncryptedFile(
         file,
+        userKey!,
+        'dummy-password', // This parameter needs to be removed from the function signature
         finalExpiryDays > 0 ? finalExpiryDays : undefined,
         maxDownloads > 0 ? maxDownloads : undefined
       );
