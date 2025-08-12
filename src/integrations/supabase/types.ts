@@ -14,13 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      encrypted_audit_logs: {
+        Row: {
+          created_at: string
+          encrypted_log_entry: string
+          id: string
+          ip_address: unknown | null
+          log_type: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          encrypted_log_entry: string
+          id?: string
+          ip_address?: unknown | null
+          log_type: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          encrypted_log_entry?: string
+          id?: string
+          ip_address?: unknown | null
+          log_type?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      encrypted_files: {
+        Row: {
+          created_at: string
+          download_count: number
+          encrypted_filename: string
+          encrypted_metadata: Json | null
+          expires_at: string | null
+          file_id: string
+          file_size: number
+          id: string
+          max_downloads: number | null
+          mime_type: string
+          storage_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          download_count?: number
+          encrypted_filename: string
+          encrypted_metadata?: Json | null
+          expires_at?: string | null
+          file_id: string
+          file_size: number
+          id?: string
+          max_downloads?: number | null
+          mime_type: string
+          storage_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          download_count?: number
+          encrypted_filename?: string
+          encrypted_metadata?: Json | null
+          expires_at?: string | null
+          file_id?: string
+          file_size?: number
+          id?: string
+          max_downloads?: number | null
+          mime_type?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_file_index: {
+        Row: {
+          created_at: string
+          encrypted_file_list: string
+          id: string
+          salt: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_file_list?: string
+          id?: string
+          salt?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_file_list?: string
+          id?: string
+          salt?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_file_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
