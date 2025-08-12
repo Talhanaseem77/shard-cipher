@@ -12,7 +12,6 @@ export const FileDownload: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileInfo, setFileInfo] = useState<any>(null);
-  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -51,7 +50,6 @@ export const FileDownload: React.FC = () => {
       setDownloading(true);
       setError(null);
       
-      // Proceed directly with download
       await downloadEncryptedFile(fileId, key, iv);
       
       toast({
@@ -70,7 +68,6 @@ export const FileDownload: React.FC = () => {
       setDownloading(false);
     }
   };
-
 
   if (error) {
     return (
@@ -159,7 +156,6 @@ export const FileDownload: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-      
     </div>
   );
 };

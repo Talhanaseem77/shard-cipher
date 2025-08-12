@@ -1,6 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 import { encryptFile, encryptFileList, decryptFileList } from '@/lib/encryption';
-import { SecureFileIndex } from '@/lib/secureFileIndex';
 
 export interface EncryptedFileMetadata {
   id: string;
@@ -75,8 +74,20 @@ export async function uploadEncryptedFile(
 
     if (metadataError) throw metadataError;
 
-    // Update user's encrypted file list - requires password
-    // This will be handled by the UI component that has the password
+    // Update user's encrypted file list
+    await updateUserFileList(user.id, {
+      id: fileId,
+      fileId,
+      originalName: file.name,
+      size: file.size,
+      type: file.type,
+      uploadDate: new Date().toISOString(),
+      expiresAt: expiresAt || undefined,
+      maxDownloads,
+      downloadCount: 0,
+      key,
+      iv
+    });
 
     // Generate download URL with properly encoded keys
     const downloadUrl = `${window.location.origin}/f/${fileId}#key=${encodeURIComponent(key)}&iv=${encodeURIComponent(iv)}`;
@@ -95,105 +106,53 @@ export async function uploadEncryptedFile(
   }
 }
 
-// Get user's files directly from encrypted_files table (no password required)
-export async function getUserFiles(): Promise<EncryptedFileMetadata[]> {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) throw new Error('User not authenticated');
-
-  try {
-    const { data, error } = await supabase
-      .from('encrypted_files')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    // Transform database records to match EncryptedFileMetadata interface
-    return (data || []).map(file => ({
-      id: file.id,
-      fileId: file.file_id,
-      originalName: file.encrypted_filename, // This is encrypted, but we'll show it for now
-      size: Number(file.file_size),
-      type: file.mime_type || 'application/octet-stream',
-      uploadDate: file.upload_date,
-      expiresAt: file.expires_at,
-      maxDownloads: file.max_downloads,
-      downloadCount: file.download_count,
-      key: '', // We'll need to extract this from metadata or URL
-      iv: ''   // We'll need to extract this from metadata or URL
-    }));
-  } catch (error) {
-    console.error('Error fetching user files:', error);
-    throw error;
-  }
-}
-
-// Get user's encrypted file list (requires password)
-export async function getUserFileList(password: string): Promise<EncryptedFileMetadata[]> {
+// Get user's encrypted file list
+export async function getUserFileList(password?: string): Promise<EncryptedFileMetadata[]> {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('User not authenticated');
 
   try {
     const { data, error } = await supabase
       .from('user_file_index')
-      .select('encrypted_file_list, salt, iv')
+      .select('encrypted_file_list, salt')
       .eq('user_id', user.id)
       .maybeSingle();
 
     if (error) throw error;
-    if (!data || !data.encrypted_file_list) {
-      // No encrypted file list exists yet - this is normal for new users
-      return [];
-    }
+    if (!data) return [];
 
-    // Decrypt the file list using password
+    // Parse the file list
     try {
-      const decryptedFileList = await SecureFileIndex.decryptFileList(
-        data.encrypted_file_list,
-        password,
-        data.salt,
-        data.iv
-      );
-      return Array.isArray(decryptedFileList) ? decryptedFileList : [];
-    } catch (decryptError) {
-      console.error('Error decrypting file list - wrong password?:', decryptError);
-      // More specific error message
-      if (!data.encrypted_file_list) {
-        throw new Error('No files uploaded yet. Upload a file first to create your encrypted file list.');
-      } else {
-        throw new Error('Incorrect password. Please enter the password you used when uploading your first file.');
-      }
+      const fileList = JSON.parse(data.encrypted_file_list);
+      return Array.isArray(fileList) ? fileList : [];
+    } catch (parseError) {
+      console.error('Error parsing file list:', parseError);
+      return [];
     }
   } catch (error) {
     console.error('Error getting file list:', error);
-    throw error;
+    return [];
   }
 }
 
-// Update user's encrypted file list with password-based encryption
-export async function updateUserFileList(userId: string, newFile: EncryptedFileMetadata, password: string): Promise<void> {
+// Update user's encrypted file list
+export async function updateUserFileList(userId: string, newFile: EncryptedFileMetadata): Promise<void> {
   try {
-    // Get existing encrypted file list
+    // Get existing file list
     const { data: existingData } = await supabase
       .from('user_file_index')
-      .select('encrypted_file_list, salt, iv')
+      .select('encrypted_file_list')
       .eq('user_id', userId)
       .maybeSingle();
 
-    // Decrypt existing files if they exist
+    // Parse existing files
     let existingFiles: EncryptedFileMetadata[] = [];
-    if (existingData?.encrypted_file_list && existingData.salt && existingData.iv) {
+    if (existingData?.encrypted_file_list) {
       try {
-        existingFiles = await SecureFileIndex.decryptFileList(
-          existingData.encrypted_file_list,
-          password,
-          existingData.salt,
-          existingData.iv
-        );
-      } catch (decryptError) {
-        console.error('Error decrypting existing file list:', decryptError);
-        // Start fresh if decryption fails
+        const parsed = JSON.parse(existingData.encrypted_file_list);
+        existingFiles = Array.isArray(parsed) ? parsed : [];
+      } catch (parseError) {
+        console.error('Error parsing existing file list:', parseError);
         existingFiles = [];
       }
     }
@@ -202,17 +161,13 @@ export async function updateUserFileList(userId: string, newFile: EncryptedFileM
     const updatedFiles = existingFiles.filter(file => file.fileId !== newFile.fileId);
     updatedFiles.push(newFile);
 
-    // Encrypt the updated file list
-    const { encryptedData, salt, iv } = await SecureFileIndex.encryptFileList(updatedFiles, password);
-
-    // Store encrypted file list
+    // Store updated file list
     const { error: upsertError } = await supabase
       .from('user_file_index')
       .upsert({
         user_id: userId,
-        encrypted_file_list: encryptedData,
-        salt,
-        iv
+        encrypted_file_list: JSON.stringify(updatedFiles),
+        salt: 'no-salt-needed'
       }, {
         onConflict: 'user_id'
       });
@@ -222,9 +177,9 @@ export async function updateUserFileList(userId: string, newFile: EncryptedFileM
       throw upsertError;
     }
 
-    console.log('Encrypted file list updated successfully for user:', userId, 'Total files:', updatedFiles.length);
+    console.log('File list updated successfully for user:', userId, 'Total files:', updatedFiles.length);
   } catch (error) {
-    console.error('Error updating encrypted file list:', error);
+    console.error('Error updating file list:', error);
     throw error;
   }
 }
@@ -261,7 +216,8 @@ export async function deleteEncryptedFile(fileId: string): Promise<void> {
 
     if (dbError) throw dbError;
 
-    // Update user's file list - requires password from UI
+    // Update user's file list
+    await removeFromUserFileList(user.id, fileId);
 
     // Log delete action
     await logAction('delete', { fileId });
@@ -272,40 +228,28 @@ export async function deleteEncryptedFile(fileId: string): Promise<void> {
 }
 
 // Remove file from user's encrypted file list
-export async function removeFromUserFileList(userId: string, fileId: string, password: string): Promise<void> {
+export async function removeFromUserFileList(userId: string, fileId: string): Promise<void> {
   try {
     const { data: currentData } = await supabase
       .from('user_file_index')
-      .select('encrypted_file_list, salt, iv')
+      .select('encrypted_file_list, salt')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (!currentData || !currentData.encrypted_file_list) return;
+    if (!currentData) return;
 
-    // Decrypt the current list
-    const currentList = await SecureFileIndex.decryptFileList(
-      currentData.encrypted_file_list,
-      password,
-      currentData.salt,
-      currentData.iv
-    );
-    
-    // Filter out the deleted file
+    // Parse the current list directly (no decryption needed)
+    const currentList = JSON.parse(currentData.encrypted_file_list || '[]');
     const updatedList = currentList.filter((file: any) => file.fileId !== fileId);
-
-    // Re-encrypt the updated list
-    const { encryptedData, salt, iv } = await SecureFileIndex.encryptFileList(updatedList, password);
 
     await supabase
       .from('user_file_index')
       .update({
-        encrypted_file_list: encryptedData,
-        salt,
-        iv
+        encrypted_file_list: JSON.stringify(updatedList)
       })
       .eq('user_id', userId);
   } catch (error) {
-    console.error('Error removing from encrypted file list:', error);
+    console.error('Error removing from file list:', error);
     throw error;
   }
 }
@@ -400,7 +344,17 @@ export async function downloadEncryptedFile(fileId: string, key: string, iv: str
       .update({ download_count: newDownloadCount })
       .eq('file_id', fileId);
 
-    // Note: Download count update in file list would require password from UI
+    // Update the user's file list with new download count
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const fileList = await getUserFileList();
+      const updatedFileList = fileList.map(file => 
+        file.fileId === fileId 
+          ? { ...file, downloadCount: newDownloadCount }
+          : file
+      );
+      await updateUserFileListData(user.id, updatedFileList);
+    }
 
     // Log download action
     await logAction('download', { fileId });
@@ -410,23 +364,21 @@ export async function downloadEncryptedFile(fileId: string, key: string, iv: str
   }
 }
 
-// Helper function to update encrypted file list data
-export async function updateUserFileListData(userId: string, fileList: EncryptedFileMetadata[], password: string): Promise<void> {
+// Helper function to update file list data
+async function updateUserFileListData(userId: string, fileList: EncryptedFileMetadata[]): Promise<void> {
   try {
-    const { encryptedData, salt, iv } = await SecureFileIndex.encryptFileList(fileList, password);
+    const serializedList = JSON.stringify(fileList);
     
     await supabase
       .from('user_file_index')
       .upsert({
         user_id: userId,
-        encrypted_file_list: encryptedData,
-        salt,
-        iv
+        encrypted_file_list: serializedList,
+        salt: 'no-salt-needed'
       }, {
         onConflict: 'user_id'
       });
   } catch (error) {
-    console.error('Error updating encrypted file list:', error);
-    throw error;
+    console.error('Error updating file list:', error);
   }
 }

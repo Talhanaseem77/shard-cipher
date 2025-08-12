@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileCheck, AlertCircle, Copy, ExternalLink } from 'lucide-react';
-import { uploadEncryptedFile } from '@/lib/fileManager';
+import { uploadEncryptedFile, getUserFileList } from '@/lib/fileManager';
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -68,12 +68,25 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       return;
     }
 
-    // Proceed directly with upload
-    await performUpload(file);
-  };
+    // Check for duplicate files
+    try {
+      const existingFiles = await getUserFileList();
+      const duplicateFile = existingFiles.find(
+        existingFile => existingFile.originalName === file.name && existingFile.size === file.size
+      );
+      
+      if (duplicateFile) {
+        toast({
+          title: "File already uploaded",
+          description: `${file.name} has already been uploaded previously`,
+          variant: "destructive"
+        });
+        return;
+      }
+    } catch (error) {
+      console.log('Could not check for duplicates, proceeding with upload...');
+    }
 
-
-  const performUpload = async (file: File) => {
     console.log('File validation passed, starting upload process...');
     setIsUploading(true);
     setUploadProgress(0);
@@ -104,7 +117,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       );
 
       console.log('Upload completed successfully:', result);
-      
       clearInterval(progressInterval);
       setUploadProgress(100);
       setUploadResult(result);
@@ -356,7 +368,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
               onClick={() => setUploadResult(null)}
               className="w-full"
             >
-            Upload Another File
+              Upload Another File
             </Button>
           </div>
         )}

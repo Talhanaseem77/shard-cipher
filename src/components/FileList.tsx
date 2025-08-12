@@ -12,21 +12,10 @@ import {
   Clock, 
   Lock,
   AlertTriangle,
-  RefreshCw,
-  Shield
+  RefreshCw
 } from 'lucide-react';
-import { getUserFiles, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
+import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 interface FileListProps {
   refreshTrigger?: number;
@@ -37,24 +26,22 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [pendingDeleteFileId, setPendingDeleteFileId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadFiles = async () => {
     try {
       setLoading(true);
-      // Load files directly from database without password requirement
-      const fileList = await getUserFiles();
+      const fileList = await getUserFileList();
       setFiles(fileList);
     } catch (error: any) {
       console.error('Error loading files:', error);
-      toast({
-        title: "Error loading files",
-        description: error.message,
-        variant: "destructive"
-      });
-      setFiles([]);
+      if (error.message !== 'Password required') {
+        toast({
+          title: "Error loading files",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -64,18 +51,15 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     loadFiles();
   }, [refreshTrigger]);
 
-  const handleDelete = (fileId: string) => {
-    setPendingDeleteFileId(fileId);
-    setShowDeleteDialog(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!pendingDeleteFileId) return;
+  const handleDelete = async (fileId: string) => {
+    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+      return;
+    }
 
     try {
-      setDeleting(pendingDeleteFileId);
-      await deleteEncryptedFile(pendingDeleteFileId);
-      setFiles(prev => prev.filter(file => file.fileId !== pendingDeleteFileId));
+      setDeleting(fileId);
+      await deleteEncryptedFile(fileId);
+      setFiles(prev => prev.filter(file => file.fileId !== fileId));
       toast({
         title: "File deleted",
         description: "The file has been permanently deleted"
@@ -89,8 +73,6 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
       });
     } finally {
       setDeleting(null);
-      setShowDeleteDialog(false);
-      setPendingDeleteFileId(null);
     }
   };
 
@@ -98,6 +80,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     try {
       setDownloading(file.fileId);
       await downloadEncryptedFile(file.fileId, file.key, file.iv);
+      
+      // Refresh the file list to update download count
+      await loadFiles();
+      
       toast({
         title: "Download started",
         description: `${file.originalName} is being downloaded`
@@ -206,14 +192,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                     <h4 className="font-medium truncate">{file.originalName}</h4>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                       <span>{formatFileSize(file.size)}</span>
-                      <span className="flex items-center gap-1 font-medium text-blue-400">
+                      <span className="flex items-center gap-1">
                         <Download className="w-3 h-3" />
-                        {file.downloadCount} download{file.downloadCount !== 1 ? 's' : ''}
-                        {file.maxDownloads && (
-                          <span className="text-muted-foreground">
-                            / {file.maxDownloads} max
-                          </span>
-                        )}
+                        {file.downloadCount} downloads
+                        {file.maxDownloads && ` / ${file.maxDownloads}`}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -232,13 +214,6 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Download count badge */}
-                  <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
-                    <Download className="w-3 h-3 mr-1" />
-                    {file.downloadCount}
-                    {file.maxDownloads && `/${file.maxDownloads}`}
-                  </Badge>
-                  
                   {isExpired(file.expiresAt) ? (
                     <Badge variant="destructive">
                       <AlertTriangle className="w-3 h-3 mr-1" />
@@ -301,7 +276,7 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           <div className="mt-6 pt-4 border-t border-border">
             <Button
               variant="outline"
-              onClick={() => loadFiles()}
+              onClick={loadFiles}
               disabled={loading}
               className="w-full"
             >
@@ -311,28 +286,6 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
           </div>
         )}
       </CardContent>
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete File</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this file? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowDeleteDialog(false);
-              setPendingDeleteFileId(null);
-            }}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Card>
   );
 };
