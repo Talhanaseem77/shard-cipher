@@ -80,6 +80,10 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     try {
       setDownloading(file.fileId);
       await downloadEncryptedFile(file.fileId, file.key, file.iv);
+      
+      // Refresh the file list to update download count
+      await loadFiles();
+      
       toast({
         title: "Download started",
         description: `${file.originalName} is being downloaded`

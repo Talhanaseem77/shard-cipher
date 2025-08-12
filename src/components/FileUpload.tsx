@@ -177,16 +177,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
             {/* Upload Options */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="expiry">Expiry (days)</Label>
-                <Input
+                <Label htmlFor="expiry">Expiry</Label>
+                <select
                   id="expiry"
-                  type="number"
-                  min="0"
-                  max="365"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   value={expiryDays}
-                  onChange={(e) => setExpiryDays(parseInt(e.target.value) || 0)}
-                  placeholder="0 for no expiry"
-                />
+                  onChange={(e) => setExpiryDays(parseInt(e.target.value))}
+                >
+                  <option value={0}>Never expires</option>
+                  <option value={1}>1 day</option>
+                  <option value={7}>1 week</option>
+                  <option value={30}>1 month</option>
+                  <option value={90}>3 months</option>
+                  <option value={365}>1 year</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="downloads">Max Downloads</Label>

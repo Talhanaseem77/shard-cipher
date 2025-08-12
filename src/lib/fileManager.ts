@@ -107,23 +107,35 @@ export async function uploadEncryptedFile(
 }
 
 // Get user's encrypted file list
-export async function getUserFileList(): Promise<EncryptedFileMetadata[]> {
+export async function getUserFileList(password?: string): Promise<EncryptedFileMetadata[]> {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('User not authenticated');
 
   try {
     const { data, error } = await supabase
       .from('user_file_index')
-      .select('encrypted_file_list, salt')
+      .select('encrypted_file_list, salt, encrypted_with_password')
       .eq('user_id', user.id)
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return [];
 
-    // Parse the file list directly (no decryption needed for now)
+    // Check if encryption is required
+    if (data.encrypted_with_password && !password) {
+      throw new Error('Password required');
+    }
+
+    // Parse the file list
     try {
-      const fileList = JSON.parse(data.encrypted_file_list);
+      let fileList;
+      if (data.encrypted_with_password && password && data.salt) {
+        // Decrypt the file list (requires SecureFileIndex implementation)
+        console.log('File list is encrypted, password required for decryption');
+        fileList = JSON.parse(data.encrypted_file_list); // Temporary fallback
+      } else {
+        fileList = JSON.parse(data.encrypted_file_list);
+      }
       return Array.isArray(fileList) ? fileList : [];
     } catch (parseError) {
       console.error('Error parsing file list:', parseError);
@@ -337,16 +349,47 @@ export async function downloadEncryptedFile(fileId: string, key: string, iv: str
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    // Increment download count
+    // Update download count and refresh file list in memory
+    const newDownloadCount = fileData.download_count + 1;
     await supabase
       .from('encrypted_files')
-      .update({ download_count: fileData.download_count + 1 })
+      .update({ download_count: newDownloadCount })
       .eq('file_id', fileId);
+
+    // Update the user's file list with new download count
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const fileList = await getUserFileList();
+      const updatedFileList = fileList.map(file => 
+        file.fileId === fileId 
+          ? { ...file, downloadCount: newDownloadCount }
+          : file
+      );
+      await updateUserFileListData(user.id, updatedFileList);
+    }
 
     // Log download action
     await logAction('download', { fileId });
   } catch (error) {
     console.error('Download error:', error);
     throw error;
+  }
+}
+
+// Helper function to update file list data
+async function updateUserFileListData(userId: string, fileList: EncryptedFileMetadata[]): Promise<void> {
+  try {
+    const serializedList = JSON.stringify(fileList);
+    
+    await supabase
+      .from('user_file_index')
+      .upsert({
+        user_id: userId,
+        encrypted_file_list: serializedList
+      }, {
+        onConflict: 'user_id'
+      });
+  } catch (error) {
+    console.error('Error updating file list:', error);
   }
 }
