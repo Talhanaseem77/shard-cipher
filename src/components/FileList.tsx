@@ -18,6 +18,16 @@ import {
 import { getUserFileList, deleteEncryptedFile, downloadEncryptedFile, type EncryptedFileMetadata } from '@/lib/fileManager';
 import { generateDownloadUrl } from '@/lib/encryption';
 import { PasswordPrompt } from '@/components/PasswordPrompt';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface FileListProps {
   refreshTrigger?: number;
@@ -31,6 +41,8 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [showDownloadPasswordPrompt, setShowDownloadPasswordPrompt] = useState(false);
   const [pendingDownloadFile, setPendingDownloadFile] = useState<EncryptedFileMetadata | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteFileId, setPendingDeleteFileId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadFiles = async (password?: string) => {
@@ -66,15 +78,18 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
     loadFiles();
   }, [refreshTrigger]);
 
-  const handleDelete = async (fileId: string) => {
-    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      return;
-    }
+  const handleDelete = (fileId: string) => {
+    setPendingDeleteFileId(fileId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteFileId) return;
 
     try {
-      setDeleting(fileId);
-      await deleteEncryptedFile(fileId);
-      setFiles(prev => prev.filter(file => file.fileId !== fileId));
+      setDeleting(pendingDeleteFileId);
+      await deleteEncryptedFile(pendingDeleteFileId);
+      setFiles(prev => prev.filter(file => file.fileId !== pendingDeleteFileId));
       toast({
         title: "File deleted",
         description: "The file has been permanently deleted"
@@ -88,6 +103,8 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
       });
     } finally {
       setDeleting(null);
+      setShowDeleteDialog(false);
+      setPendingDeleteFileId(null);
     }
   };
 
@@ -396,6 +413,28 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
         title="Verify Download"
         description={`Enter your password to download "${pendingDownloadFile?.originalName}":`}
       />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete File</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this file? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDeleteDialog(false);
+              setPendingDeleteFileId(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
