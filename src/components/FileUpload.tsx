@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileCheck, AlertCircle, Copy, ExternalLink } from 'lucide-react';
-import { uploadEncryptedFile, getUserFileList } from '@/lib/fileManager';
+import { uploadEncryptedFile, getUserFileList, updateUserFileList } from '@/lib/fileManager';
 import { PasswordPrompt } from '@/components/PasswordPrompt';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -100,12 +101,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       console.log('Could not check for duplicates, proceeding with upload...');
     }
 
-    await performUpload(pendingFile);
+    await performUpload(pendingFile, password);
     setPendingFile(null);
     setShowPasswordPrompt(false);
   };
 
-  const performUpload = async (file: File) => {
+  const performUpload = async (file: File, password?: string) => {
 
     console.log('File validation passed, starting upload process...');
     setIsUploading(true);
@@ -137,6 +138,33 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       );
 
       console.log('Upload completed successfully:', result);
+      
+      // Now update the user's encrypted file list with the password
+      if (password) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const fileMetadata = {
+            id: result.fileId,
+            fileId: result.fileId,
+            originalName: file.name,
+            size: file.size,
+            type: file.type,
+            uploadDate: new Date().toISOString(),
+            expiresAt: finalExpiryDays > 0 ? new Date(Date.now() + finalExpiryDays * 24 * 60 * 60 * 1000).toISOString() : undefined,
+            maxDownloads: maxDownloads > 0 ? maxDownloads : undefined,
+            downloadCount: 0,
+            key: '', // These will be extracted from the download URL
+            iv: ''
+          };
+          
+          // Extract key and iv from download URL
+          const urlParams = new URLSearchParams(result.downloadUrl.split('#')[1]);
+          fileMetadata.key = urlParams.get('key') || '';
+          fileMetadata.iv = urlParams.get('iv') || '';
+          
+          await updateUserFileList(user.id, fileMetadata, password);
+        }
+      }
       clearInterval(progressInterval);
       setUploadProgress(100);
       setUploadResult(result);
