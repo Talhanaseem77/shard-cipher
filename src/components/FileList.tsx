@@ -93,8 +93,12 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
       setDownloading(file.fileId);
       await downloadEncryptedFile(file.fileId, file.key, file.iv);
       
-      // Refresh the file list to update download count
-      await loadFiles();
+      // Update the download count in the local state immediately
+      setFiles(prev => prev.map(f => 
+        f.fileId === file.fileId 
+          ? { ...f, downloadCount: f.downloadCount + 1 }
+          : f
+      ));
       
       toast({
         title: "Download started",
@@ -240,10 +244,14 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                     <h4 className="font-medium truncate">{file.originalName}</h4>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                       <span>{formatFileSize(file.size)}</span>
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 font-medium text-blue-400">
                         <Download className="w-3 h-3" />
-                        {file.downloadCount} downloads
-                        {file.maxDownloads && ` / ${file.maxDownloads}`}
+                        {file.downloadCount} download{file.downloadCount !== 1 ? 's' : ''}
+                        {file.maxDownloads && (
+                          <span className="text-muted-foreground">
+                            / {file.maxDownloads} max
+                          </span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -262,6 +270,13 @@ export const FileList: React.FC<FileListProps> = ({ refreshTrigger }) => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Download count badge */}
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                    <Download className="w-3 h-3 mr-1" />
+                    {file.downloadCount}
+                    {file.maxDownloads && `/${file.maxDownloads}`}
+                  </Badge>
+                  
                   {isExpired(file.expiresAt) ? (
                     <Badge variant="destructive">
                       <AlertTriangle className="w-3 h-3 mr-1" />
