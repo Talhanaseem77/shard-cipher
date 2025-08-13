@@ -3,18 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, Upload, Download, Trash2, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { SecureDataManager, type AuditLogEntry } from '@/lib/secureDataManager';
 
-interface LogEntry {
-  id: string;
-  action: string;
-  timestamp: string;
-  data: any;
-  log_type: string;
-  user_agent?: string;
-}
+// Using AuditLogEntry from SecureDataManager for encrypted logs
 
 export const ActivityLog: React.FC = () => {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,25 +20,9 @@ export const ActivityLog: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('encrypted_audit_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      const parsedLogs = data?.map(log => ({
-        id: log.id,
-        action: log.log_type,
-        timestamp: log.created_at,
-        data: JSON.parse(log.encrypted_log_entry || '{}'),
-        log_type: log.log_type,
-        user_agent: log.user_agent
-      })) || [];
-
-      setLogs(parsedLogs);
+      // Use secure decryption to get audit logs - all encryption happens in browser
+      const decryptedLogs = await SecureDataManager.getDecryptedAuditLogs(user.id, 20);
+      setLogs(decryptedLogs);
     } catch (error) {
       console.error('Error loading activity logs:', error);
     } finally {
@@ -114,9 +92,9 @@ export const ActivityLog: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {logs.map((log) => (
+            {logs.map((log, index) => (
               <div 
-                key={log.id}
+                key={`${log.timestamp}-${index}`}
                 className="flex items-center justify-between p-3 border border-border rounded-lg bg-background/30"
               >
                 <div className="flex items-center gap-3">
@@ -129,7 +107,7 @@ export const ActivityLog: React.FC = () => {
                       <Badge variant="outline" className={getActionColor(log.action)}>
                         {log.action}
                       </Badge>
-                      {log.data.fileName && (
+                      {log.data?.fileName && (
                         <span className="text-sm font-medium">{log.data.fileName}</span>
                       )}
                     </div>
@@ -140,7 +118,7 @@ export const ActivityLog: React.FC = () => {
                   </div>
                 </div>
                 
-                {log.data.fileSize && (
+                {log.data?.fileSize && (
                   <div className="text-sm text-muted-foreground">
                     {(log.data.fileSize / 1024 / 1024).toFixed(2)} MB
                   </div>
